@@ -65,6 +65,7 @@ for form_prefix, endpoint in forms_and_endpoints.items():
         headers={"Content-Type": "multipart/form-data"},
         data=csv_path,
         http_conn_id='ckan',
-        dag=dag
+        dag=dag,
+        task_id=form_prefix + "_push",
     )
     push_dataset << pull_dataset
