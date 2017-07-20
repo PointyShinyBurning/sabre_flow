@@ -33,7 +33,7 @@ def push_to_ckan(csv_path, resource_id):
     requests.post(
         url=conn.host + '/api/3/action/resource_update',
         data={'upload':file, "id":resource_id},
-        headers=conn.extra_dejson(),
+        headers=conn.extra_dejson,
     )
 
 def post_to_ckan(id, file_path):
