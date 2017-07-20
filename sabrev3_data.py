@@ -37,7 +37,7 @@ default_args = {
     'start_date': datetime(2017, 7, 20),
 }
 
-dag = DAG('unzip_openclinica_data', default_args=default_args)
+dag = DAG('sabrev3', default_args=default_args)
 
 unzip = PythonOperator(
     python_callable=unzip_first_file,
