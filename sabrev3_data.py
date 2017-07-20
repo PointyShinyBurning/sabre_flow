@@ -26,7 +26,7 @@ def save_form_to_csv(form_oid_prefix, save_path):
         .get_dataset(xml_dump_path, form_oid_prefix)\
         .to_csv(save_path)
 
-forms_and_endpoints = {'F_ANTHROPO': 'dataset/anthropometrics/resource/746f91c8-ab54-4476-95e3-a9da2dafdffc'}
+forms_and_endpoints = {'F_ANTHROPO': '/dataset/anthropometrics/resource/746f91c8-ab54-4476-95e3-a9da2dafdffc'}
 
 default_args = {
     'owner': 'airflow',
