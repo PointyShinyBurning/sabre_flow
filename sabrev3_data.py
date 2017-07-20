@@ -59,9 +59,10 @@ for form_prefix, resource_id in forms_and_ids.items():
     pull_dataset << unzip
 
     push_dataset = SimpleHttpOperator(
-        endpoint='/api/action/resource_update',
+        endpoint='/api/3/action/resource_update',
         method='POST',
-        headers={"Content-Type": "multipart/form-data", "id": resource_id, "upload": csv_path},
+        headers={"Content-Type": "multipart/form-data"},
+        data={"id": resource_id},
         http_conn_id='ckan',
         dag=dag,
         task_id=form_prefix + "_push",
