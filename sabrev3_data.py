@@ -62,7 +62,7 @@ for form_prefix, resource_id in forms_and_ids.items():
         endpoint='/api/3/action/resource_update',
         method='POST',
         headers={"Content-Type": "multipart/form-data"},
-        data={"id": resource_id},
+        data="id=resource_id",
         http_conn_id='ckan',
         dag=dag,
         task_id=form_prefix + "_push",
