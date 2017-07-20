@@ -24,7 +24,7 @@ def unzip_first_file(zip_path, destination):
 def save_form_to_csv(form_oid_prefix, save_path):
     OpenClinica("http://cmp.slms.ucl.ac.uk/OpenClinica", "S_SABREV3_4350")\
         .get_dataset(xml_dump_path, form_oid_prefix)\
-        .to_csv(os.path.join(save_path, form_oid_prefix+".csv"))
+        .to_csv(save_path)
 
 forms_and_endpoints = {'F_ANTHROPO': 'dataset/anthropometrics/resource/746f91c8-ab54-4476-95e3-a9da2dafdffc'}
 
