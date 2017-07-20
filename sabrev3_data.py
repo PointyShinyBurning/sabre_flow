@@ -7,6 +7,7 @@ from datetime import datetime
 import shutil
 from cpgintegrate.connectors import OpenClinica
 import requests
+import logging
 
 xml_dump_path = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")+"openclinica.xml"
 
@@ -30,11 +31,12 @@ def save_form_to_csv(form_oid_prefix, save_path):
 def push_to_ckan(csv_path, resource_id):
     conn = BaseHook.get_connection('ckan')
     file = open(csv_path, 'rb')
-    assert requests.post(
+    res = requests.post(
         url=conn.host + '/api/3/action/resource_update',
-        data={'upload':file, "id":resource_id},
+        data={'upload': file, "id": resource_id},
         headers=conn.extra_dejson,
-    ).status_code == 200
+    )
+    logging.info("HTTP Status Code: %s", res.status_code)
 
 def post_to_ckan(id, file_path):
     pass
