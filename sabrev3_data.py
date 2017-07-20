@@ -30,11 +30,11 @@ def save_form_to_csv(form_oid_prefix, save_path):
 def push_to_ckan(csv_path, resource_id):
     conn = BaseHook.get_connection('ckan')
     file = open(csv_path, 'rb')
-    requests.post(
+    assert requests.post(
         url=conn.host + '/api/3/action/resource_update',
         data={'upload':file, "id":resource_id},
         headers=conn.extra_dejson,
-    )
+    ).status_code == 200
 
 def post_to_ckan(id, file_path):
     pass
