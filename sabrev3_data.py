@@ -6,7 +6,6 @@ from airflow.operators.http_operator import SimpleHttpOperator
 from datetime import datetime
 import shutil
 from cpgintegrate.connectors import OpenClinica
-import os
 
 xml_dump_path = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")+"openclinica.xml"
 
@@ -26,7 +25,7 @@ def save_form_to_csv(form_oid_prefix, save_path):
         .get_dataset(xml_dump_path, form_oid_prefix)\
         .to_csv(save_path)
 
-forms_and_endpoints = {'F_ANTHROPO': '/dataset/anthropometrics/resource/746f91c8-ab54-4476-95e3-a9da2dafdffc'}
+forms_and_ids = {'F_ANTHROPO': '746f91c8-ab54-4476-95e3-a9da2dafdffc'}
 
 default_args = {
     'owner': 'airflow',
@@ -49,7 +48,7 @@ unzip = PythonOperator(
     dag=dag,
 )
 
-for form_prefix, endpoint in forms_and_endpoints.items():
+for form_prefix, resource_id in forms_and_ids.items():
     csv_path = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")+form_prefix+".csv"
     pull_dataset = PythonOperator(
         python_callable=save_form_to_csv,
@@ -60,10 +59,9 @@ for form_prefix, endpoint in forms_and_endpoints.items():
     pull_dataset << unzip
 
     push_dataset = SimpleHttpOperator(
-        endpoint=endpoint,
+        endpoint='/api/action/resource_update',
         method='PUT',
-        headers={"Content-Type": "multipart/form-data"},
-        data=csv_path,
+        headers={"Content-Type": "multipart/form-data", "id": resource_id, "file": csv_path},
         http_conn_id='ckan',
         dag=dag,
         task_id=form_prefix + "_push",
