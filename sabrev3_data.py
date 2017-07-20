@@ -63,7 +63,7 @@ for form_prefix, endpoint in forms_and_endpoints.items():
         endpoint=endpoint,
         method='PUT',
         headers={"Content-Type": "multipart/form-data"},
-        data=open(csv_path, 'rb'),
+        data=csv_path,
         http_conn_id='ckan',
         dag=dag
     )
