@@ -1,2 +1,2 @@
-airflow>=1.8.0
+apache-airflow
 git+https://github.com/pointyshinyburning/cpgintegrate#egg=cpgintegrate
