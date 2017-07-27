@@ -11,7 +11,8 @@ import requests
 import logging
 
 xml_dump_path = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")+"openclinica.xml"
-
+openclinica_conn = BaseHook.get_connection('OpenClinica')
+openclinica_auth = openclinica_conn['Login'], openclinica_conn.get_password()
 
 def unzip_first_file(zip_path, destination):
     zip_file = zipfile.ZipFile(zip_path)
@@ -24,15 +25,15 @@ def unzip_first_file(zip_path, destination):
 
 
 def save_form_to_csv(form_oid_prefix, save_path):
-    OpenClinica("http://cmp.slms.ucl.ac.uk/OpenClinica", "S_SABREV3_4350", xml_path=xml_dump_path)\
+    OpenClinica(openclinica_conn.get_hook().get_uri(), "S_SABREV3_4350", xml_path=xml_dump_path)\
         .get_dataset(form_oid_prefix)\
         .to_csv(save_path)
 
 
 def save_processed_files_to_csv(item_oid, save_path, cols=None):
     df = cpgintegrate.process_files(
-        OpenClinica("http://cmp.slms.ucl.ac.uk/OpenClinica",
-                    "S_SABREV3_4350", xml_path=xml_dump_path).iter_files(item_oid),
+        OpenClinica(openclinica_conn.get_hook().get_uri(),
+                    "S_SABREV3_4350", xml_path=xml_dump_path, auth=openclinica_auth).iter_files(item_oid),
         cpgintegrate.processors.tanita_bioimpedance.to_frame
     )
     df.loc[:, cols or df.columns].to_csv(save_path)
