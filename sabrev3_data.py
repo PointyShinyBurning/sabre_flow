@@ -12,7 +12,7 @@ import logging
 
 xml_dump_path = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")+"openclinica.xml"
 openclinica_conn = BaseHook.get_connection('openclinica')
-openclinica_auth = openclinica_conn['Login'], openclinica_conn.get_password()
+openclinica_auth = openclinica_conn.login, openclinica_conn.password
 
 
 def unzip_first_file(zip_path, destination):
