@@ -9,7 +9,6 @@ import cpgintegrate
 import cpgintegrate.processors.tanita_bioimpedance
 import requests
 import logging
-import functools
 
 xml_dump_path = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")+"openclinica.xml"
 
@@ -32,8 +31,8 @@ def save_form_to_csv(form_oid_prefix, save_path):
 
 def save_processed_files_to_csv(item_oid, save_path, cols=None):
     df = cpgintegrate.process_files(
-        OpenClinica("http://cmp.slms.ucl.ac.uk/OpenClinica", "S_SABREV3_4350").iter_files(item_oid)
-        , cpgintegrate.processors.tanita_bioimpedance.to_frame
+        OpenClinica("http://cmp.slms.ucl.ac.uk/OpenClinica", "S_SABREV3_4350").iter_files(item_oid),
+        cpgintegrate.processors.tanita_bioimpedance.to_frame
     )
     df.loc[:, cols or df.columns].to_csv(save_path)
 
@@ -51,10 +50,10 @@ def push_to_ckan(push_csv_path, push_resource_id):
     assert res.status_code == 200
 
 
-forms_and_ids = {'F_ANTHROPO': (save_form_to_csv, '746f91c8-ab54-4476-95e3-a9da2dafdffc'),
-                 'I_ANTHR_BIOIMPEDANCEFILE': (
-                     functools.partial(save_processed_files_to_csv, cols=['BMI_WEIGHT', 'BODYFAT_FATM', 'BODYFAT_FATP']),
-                     'd2662fcc-9062-4458-b087-eca407527ffd')
+forms_and_ids = {'F_ANTHROPO': (save_form_to_csv, '746f91c8-ab54-4476-95e3-a9da2dafdffc', {}),
+                 'I_ANTHR_BIOIMPEDANCEFILE': (save_processed_files_to_csv, 'd2662fcc-9062-4458-b087-eca407527ffd',
+                                              {'cols': ['BMI_WEIGHT', 'BODYFAT_FATM', 'BODYFAT_FATP']}
+                                              )
                  }
 
 default_args = {
@@ -78,11 +77,12 @@ unzip = PythonOperator(
     dag=dag,
 )
 
-for form_prefix,(callee, resource_id) in forms_and_ids.items():
+for form_prefix, (callee, resource_id, extra_args) in forms_and_ids.items():
     csv_path = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")+form_prefix+".csv"
     pull_dataset = PythonOperator(
         python_callable=callee,
         op_args=[form_prefix, csv_path],
+        op_kwargs=extra_args,
         task_id=form_prefix+"_export",
         dag=dag,
     )
