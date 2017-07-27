@@ -26,14 +26,14 @@ def unzip_first_file(zip_path, destination):
 
 
 def save_form_to_csv(form_oid_prefix, save_path):
-    OpenClinica(openclinica_conn.get_hook().get_uri(), "S_SABREV3_4350", xml_path=xml_dump_path)\
+    OpenClinica(openclinica_conn.host, "S_SABREV3_4350", xml_path=xml_dump_path)\
         .get_dataset(form_oid_prefix)\
         .to_csv(save_path)
 
 
 def save_processed_files_to_csv(item_oid, save_path, cols=None):
     df = cpgintegrate.process_files(
-        OpenClinica(openclinica_conn.get_hook().get_uri(),
+        OpenClinica(openclinica_conn.host,
                     "S_SABREV3_4350", xml_path=xml_dump_path, auth=openclinica_auth).iter_files(item_oid),
         cpgintegrate.processors.tanita_bioimpedance.to_frame
     )
