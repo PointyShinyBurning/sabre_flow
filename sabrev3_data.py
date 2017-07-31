@@ -4,9 +4,9 @@ from airflow.hooks.base_hook import BaseHook
 from airflow.operators.python_operator import PythonOperator
 from datetime import datetime
 import shutil
-from cpgintegrate.connectors import OpenClinica
 import cpgintegrate
-import cpgintegrate.processors.tanita_bioimpedance
+from cpgintegrate.connectors import OpenClinica
+from  cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast
 import requests
 import logging
 
@@ -31,11 +31,11 @@ def save_form_to_csv(form_oid_prefix, save_path):
         .to_csv(save_path)
 
 
-def save_processed_files_to_csv(item_oid, save_path, cols=None):
+def save_processed_files_to_csv(item_oid, save_path, processor=None, cols=None):
     df = cpgintegrate.process_files(
         OpenClinica(openclinica_conn.host,
                     "S_SABREV3_4350", xml_path=xml_dump_path, auth=openclinica_auth).iter_files(item_oid),
-        cpgintegrate.processors.tanita_bioimpedance.to_frame
+        processor
     )
     df.loc[:, cols or df.columns].to_csv(save_path)
 
@@ -55,8 +55,10 @@ def push_to_ckan(push_csv_path, push_resource_id):
 
 forms_and_ids = {'F_ANTHROPO': (save_form_to_csv, '746f91c8-ab54-4476-95e3-a9da2dafdffc', {}),
                  'I_ANTHR_BIOIMPEDANCEFILE': (save_processed_files_to_csv, 'd2662fcc-9062-4458-b087-eca407527ffd',
-                                              {'cols': ['BMI_WEIGHT', 'BODYFAT_FATM', 'BODYFAT_FATP']}
-                                              )
+                                              {'cols': ['BMI_WEIGHT', 'BODYFAT_FATM', 'BODYFAT_FATP'],
+                                               'processor': tanita_bioimpedance.to_frame}),
+                 'I_LIVER_ELASTOGRAPHYFILE': (save_processed_files_to_csv, 'f8faefc6-0950-4ade-a827-fc401c1ca13a',
+                                              {'processor': epiq7_liverelast.to_frame}),
                  }
 
 default_args = {
