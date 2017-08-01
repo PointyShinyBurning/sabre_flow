@@ -37,7 +37,7 @@ def save_processed_files_to_csv(item_oid, save_path, processor=None, cols=None):
                     "S_SABREV3_4350", xml_path=xml_dump_path, auth=openclinica_auth).iter_files(item_oid),
         processor
     )
-    df.loc[:, cols or df.columns + ['Source', 'FileSubjectID']].to_csv(save_path)
+    df.loc[:, cols+['Source', 'FileSubjectID'] if cols else df.columns].to_csv(save_path)
 
 
 def push_to_ckan(push_csv_path, push_resource_id):
