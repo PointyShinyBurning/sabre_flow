@@ -37,9 +37,12 @@ def save_form_to_csv(form_oid_prefix, save_path, **context):
 
 
 def save_processed_files_to_csv(item_oid, save_path, processor=None, cols=None, **context):
-    oc = OpenClinica(openclinica_conn.host, "S_SABREV3_4350", xml_path=xml_dump_path)
-    oc.session = requests.Session()
-    oc.session.cookies = context['task_instance'].xcom_pull(task_ids='openclinica_session_login')
+    if context['task_instance'].xcom_pull(task_ids='openclinica_session_login'):
+        oc = OpenClinica(openclinica_conn.host, "S_SABREV3_4350", xml_path=xml_dump_path)
+        oc.session = requests.Session()
+        oc.session.cookies = context['task_instance'].xcom_pull(task_ids='openclinica_session_login')
+    else:
+        oc = OpenClinica(openclinica_conn.host, "S_SABREV3_4350", xml_path=xml_dump_path, auth=openclinica_auth)
 
     df = cpgintegrate.process_files(oc.iter_files(item_oid), processor)
     df.loc[:, cols+['Source', 'FileSubjectID', 'error'] if cols else df.columns].to_csv(save_path)
