@@ -6,7 +6,7 @@ from datetime import datetime
 import shutil
 import cpgintegrate
 from cpgintegrate.connectors import OpenClinica
-from  cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast
+from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast
 import requests
 import logging
 
@@ -25,19 +25,22 @@ def unzip_first_file(zip_path, destination):
     destination_file.close()
 
 
-def save_form_to_csv(form_oid_prefix, save_path):
+def save_form_to_csv(form_oid_prefix, save_path, **context):
     OpenClinica(openclinica_conn.host, "S_SABREV3_4350", xml_path=xml_dump_path)\
         .get_dataset(form_oid_prefix)\
         .to_csv(save_path)
 
 
-def save_processed_files_to_csv(item_oid, save_path, processor=None, cols=None):
-    df = cpgintegrate.process_files(
-        OpenClinica(openclinica_conn.host,
-                    "S_SABREV3_4350", xml_path=xml_dump_path, auth=openclinica_auth).iter_files(item_oid),
-        processor
-    )
-    df.loc[:, cols+['Source', 'FileSubjectID'] if cols else df.columns].to_csv(save_path)
+def save_processed_files_to_csv(item_oid, save_path, processor=None, cols=None, **context):
+    if context['task_instance'].xcom_pull(key='oc.session.cookies'):
+        oc = OpenClinica(openclinica_conn.host, "S_SABREV3_4350", xml_path=xml_dump_path)
+        oc.session = requests.Session()
+        oc.session.cookies = context['task_instance'].xcom_pull(key='oc.session.cookies')
+    else:
+        oc = OpenClinica(openclinica_conn.host, "S_SABREV3_4350", xml_path=xml_dump_path, auth=openclinica_auth)
+    df = cpgintegrate.process_files(oc.iter_files(item_oid), processor)
+    df.loc[:, cols+['Source', 'FileSubjectID', 'error'] if cols else df.columns].to_csv(save_path)
+    context['task_instance'].xcom_push(oc.session.cookies, key='oc.sesson.cookies')
 
 
 def push_to_ckan(push_csv_path, push_resource_id):
@@ -90,6 +93,7 @@ for form_prefix, (callee, resource_id, extra_args) in forms_and_ids.items():
         op_kwargs=extra_args,
         task_id=form_prefix+"_export",
         dag=dag,
+        provide_context=True
     )
     pull_dataset << unzip
 
