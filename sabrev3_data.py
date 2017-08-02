@@ -25,6 +25,11 @@ def unzip_first_file(zip_path, destination):
     destination_file.close()
 
 
+def openclinica_session_login():
+    oc = OpenClinica(openclinica_conn.host, "S_SABREV3_4350", xml_path=xml_dump_path, auth=openclinica_auth)
+    return oc.session.cookies
+
+
 def save_form_to_csv(form_oid_prefix, save_path, **context):
     OpenClinica(openclinica_conn.host, "S_SABREV3_4350", xml_path=xml_dump_path)\
         .get_dataset(form_oid_prefix)\
@@ -32,15 +37,12 @@ def save_form_to_csv(form_oid_prefix, save_path, **context):
 
 
 def save_processed_files_to_csv(item_oid, save_path, processor=None, cols=None, **context):
-    if context['task_instance'].xcom_pull(key='oc.session.cookies'):
-        oc = OpenClinica(openclinica_conn.host, "S_SABREV3_4350", xml_path=xml_dump_path)
-        oc.session = requests.Session()
-        oc.session.cookies = context['task_instance'].xcom_pull(key='oc.session.cookies')
-    else:
-        oc = OpenClinica(openclinica_conn.host, "S_SABREV3_4350", xml_path=xml_dump_path, auth=openclinica_auth)
+    oc = OpenClinica(openclinica_conn.host, "S_SABREV3_4350", xml_path=xml_dump_path)
+    oc.session = requests.Session()
+    oc.session.cookies = context['task_instance'].xcom_pull(task_ids='openclinica_session_login')
+
     df = cpgintegrate.process_files(oc.iter_files(item_oid), processor)
     df.loc[:, cols+['Source', 'FileSubjectID', 'error'] if cols else df.columns].to_csv(save_path)
-    context['task_instance'].xcom_push(oc.session.cookies, key='oc.sesson.cookies')
 
 
 def push_to_ckan(push_csv_path, push_resource_id):
@@ -85,6 +87,14 @@ unzip = PythonOperator(
     dag=dag,
 )
 
+openclinica_session_login = PythonOperator(
+    python_callable=openclinica_session_login,
+    task_id='openclinica_session_login',
+    dag=dag,
+)
+
+openclinica_session_login << unzip
+
 for form_prefix, (callee, resource_id, extra_args) in forms_and_ids.items():
     csv_path = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")+form_prefix+".csv"
     pull_dataset = PythonOperator(
@@ -95,7 +105,7 @@ for form_prefix, (callee, resource_id, extra_args) in forms_and_ids.items():
         dag=dag,
         provide_context=True
     )
-    pull_dataset << unzip
+    pull_dataset << openclinica_session_login
 
     push_dataset = PythonOperator(
         python_callable=push_to_ckan,
