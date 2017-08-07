@@ -38,10 +38,12 @@ def save_form_to_csv(form_oid_prefix, save_path, **context):
 
 def save_processed_files_to_csv(item_oid, save_path, processor=None, cols=None, **context):
     if context['task_instance'].xcom_pull(task_ids='openclinica_session_login'):
+        logging.info("Using stored OpenClinica cookies")
         oc = OpenClinica(openclinica_conn.host, "S_SABREV3_4350", xml_path=xml_dump_path)
         oc.session = requests.Session()
         oc.session.cookies = context['task_instance'].xcom_pull(task_ids='openclinica_session_login')
     else:
+        logging.info("No stored cookies found, logging into OpenClinica")
         oc = OpenClinica(openclinica_conn.host, "S_SABREV3_4350", xml_path=xml_dump_path, auth=openclinica_auth)
 
     df = cpgintegrate.process_files(oc.iter_files(item_oid), processor)
