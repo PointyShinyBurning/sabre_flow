@@ -47,7 +47,8 @@ def save_processed_files_to_csv(item_oid, save_path, processor=None, cols=None, 
         oc = OpenClinica(openclinica_conn.host, "S_SABREV3_4350", xml_path=xml_dump_path, auth=openclinica_auth)
 
     df = cpgintegrate.process_files(oc.iter_files(item_oid), processor)
-    df.loc[:, cols+['Source', 'FileSubjectID', 'error'] if cols else df.columns].to_csv(save_path)
+    df.loc[~df.get("error", False), cols+['Source', 'FileSubjectID'] if cols else df.columns].to_csv(save_path)
+    return df.loc[df.get("error", False)]
 
 
 def push_to_ckan(push_csv_path, push_resource_id):
@@ -100,6 +101,8 @@ openclinica_session_login = PythonOperator(
 
 openclinica_session_login << unzip
 
+previous = openclinica_session_login
+
 for form_prefix, (callee, resource_id, extra_args) in forms_and_ids.items():
     csv_path = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")+form_prefix+".csv"
     pull_dataset = PythonOperator(
@@ -110,7 +113,7 @@ for form_prefix, (callee, resource_id, extra_args) in forms_and_ids.items():
         dag=dag,
         provide_context=True
     )
-    pull_dataset << openclinica_session_login
+    pull_dataset << previous
 
     push_dataset = PythonOperator(
         python_callable=push_to_ckan,
@@ -120,3 +123,5 @@ for form_prefix, (callee, resource_id, extra_args) in forms_and_ids.items():
     )
 
     push_dataset << pull_dataset
+
+    previous = pull_dataset
