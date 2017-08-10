@@ -56,11 +56,11 @@ def push_to_ckan(push_csv_path, push_resource_id):
     assert res.status_code == 200
 
 
-forms_and_ids = {'F_ANTHROPO': (save_form_to_csv, '746f91c8-ab54-4476-95e3-a9da2dafdffc', {}),
-                 'I_ANTHR_BIOIMPEDANCEFILE': (save_processed_files_to_csv, 'd2662fcc-9062-4458-b087-eca407527ffd',
+forms_and_ids = {'F_ANTHROPO': (save_form_to_csv, '40aa2125-2132-473b-9a06-302ed97060a6', {}),
+                 'I_ANTHR_BIOIMPEDANCEFILE': (save_processed_files_to_csv, 'f1755dba-b898-4af4-bb4e-0c7977ef8a37',
                                               {'cols': ['BMI_WEIGHT', 'BODYFAT_FATM', 'BODYFAT_FATP'],
                                                'processor': tanita_bioimpedance.to_frame}),
-                 'I_LIVER_ELASTOGRAPHYFILE': (save_processed_files_to_csv, 'f8faefc6-0950-4ade-a827-fc401c1ca13a',
+                 'I_LIVER_ELASTOGRAPHYFILE': (save_processed_files_to_csv, 'e751379f-2a2b-472c-b454-05cf83d8f099',
                                               {'processor': epiq7_liverelast.to_frame}),
                  }
 
