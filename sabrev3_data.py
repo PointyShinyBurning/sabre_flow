@@ -58,8 +58,8 @@ def push_to_ckan(push_csv_path, push_resource_id):
 
 
 def collect_error(save_path, **context):
-    pd.DataFrame(
-        [frame for frame in context['task_instance'].xcom_pull(task_ids=None, key="processing_error")]
+    pd.concat(
+        [pd.DataFrame(d) for d in context['task_instance'].xcom_pull(task_ids=None, key="processing_error")]
     ).to_csv(save_path)
 
 
