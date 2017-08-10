@@ -9,6 +9,7 @@ from cpgintegrate.connectors import OpenClinica
 from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast
 import requests
 import logging
+import numpy as np
 
 xml_dump_path = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")+"openclinica.xml"
 openclinica_conn = BaseHook.get_connection('openclinica')
@@ -47,8 +48,9 @@ def save_processed_files_to_csv(item_oid, save_path, processor=None, cols=None, 
         oc = OpenClinica(openclinica_conn.host, "S_SABREV3_4350", xml_path=xml_dump_path, auth=openclinica_auth)
 
     df = cpgintegrate.process_files(oc.iter_files(item_oid), processor)
-    df.loc[~df.get("error", False), cols+['Source', 'FileSubjectID'] if cols else df.columns].to_csv(save_path)
-    return df.loc[df.get("error", False)]
+    is_error = ~df.get("error", df.assign(error=np.NAN).error).isnull()
+    df.loc[~is_error, cols+['Source', 'FileSubjectID'] if cols else df.columns].to_csv(save_path)
+    return df.loc[is_error]
 
 
 def push_to_ckan(push_csv_path, push_resource_id):
