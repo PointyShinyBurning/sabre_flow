@@ -41,7 +41,7 @@ def save_processed_files_to_csv(item_oid, save_path, processor=None, cols=None, 
     df = cpgintegrate.process_files(oc.iter_files(item_oid), processor)
     is_error = ~df.get("error", df.assign(error=np.NAN).error).isnull()
     df.loc[~is_error, cols+['Source', 'FileSubjectID'] if cols else df.columns].to_csv(save_path)
-    context['task_instance'].xcom_push(df.loc[is_error], key="processing_error")
+    context['task_instance'].xcom_push("processing_error", df.loc[is_error])
 
 
 def push_to_ckan(push_csv_path, push_resource_id):
