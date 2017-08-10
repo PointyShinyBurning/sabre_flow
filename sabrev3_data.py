@@ -10,6 +10,7 @@ from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast
 import requests
 import logging
 import numpy as np
+import pandas as pd
 
 xml_dump_path = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")+"openclinica.xml"
 openclinica_conn = BaseHook.get_connection('openclinica')
@@ -56,6 +57,12 @@ def push_to_ckan(push_csv_path, push_resource_id):
     assert res.status_code == 200
 
 
+def collect_error(save_path, **context):
+    pd.DataFrame(
+        [frame.loc['error'] for frame in context['task_instance'].xcom_pull(task_ids=None, key="processing_error")]
+    ).to_csv(save_path)
+
+
 forms_and_ids = {'F_ANTHROPO': (save_form_to_csv, '746f91c8-ab54-4476-95e3-a9da2dafdffc', {}),
                  'I_ANTHR_BIOIMPEDANCEFILE': (save_processed_files_to_csv, 'd2662fcc-9062-4458-b087-eca407527ffd',
                                               {'cols': ['BMI_WEIGHT', 'BODYFAT_FATM', 'BODYFAT_FATP'],
@@ -81,31 +88,35 @@ unzip = PythonOperator(
         BaseHook.get_connection('openclinica_export_zip').extra_dejson.get("path"),
         xml_dump_path
     ],
-    task_id='unzip',
-    dag=dag,
+    task_id='unzip', dag=dag,
 )
 
 previous = unzip
 
+error_csv_path = csv_path = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")+"_processing_errors.csv"
+
+collect_errors_task = PythonOperator(python_callable=collect_error, op_args=[error_csv_path],
+                                     task_id="collect_errors", dag=dag, provide_context=True)
+
+push_errors = PythonOperator(
+        python_callable=push_to_ckan, op_args=[error_csv_path, "f7dac661-0f20-4354-bd69-5cf0e39dfc1e"],
+        task_id="errors_push_to_ckan", dag=dag,
+    )
+
 for form_prefix, (callee, resource_id, extra_args) in forms_and_ids.items():
     csv_path = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")+form_prefix+".csv"
     pull_dataset = PythonOperator(
-        python_callable=callee,
-        op_args=[form_prefix, csv_path],
-        op_kwargs=extra_args,
-        task_id=form_prefix+"_export",
-        dag=dag,
-        provide_context=True
+        python_callable=callee, op_args=[form_prefix, csv_path], op_kwargs=extra_args,
+        task_id=form_prefix+"_export", dag=dag, provide_context=True
     )
     pull_dataset << previous
 
     push_dataset = PythonOperator(
-        python_callable=push_to_ckan,
-        op_args=[csv_path, resource_id],
-        task_id=form_prefix + "_push_to_ckan",
-        dag=dag,
+        python_callable=push_to_ckan, op_args=[csv_path, resource_id],
+        task_id=form_prefix + "_push_to_ckan", dag=dag,
     )
     # Run the OpenClinica extracts sequentially because its session management is stoopid
     push_dataset << pull_dataset
-
+    collect_errors_task << pull_dataset
     previous = pull_dataset
+
