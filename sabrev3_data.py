@@ -102,7 +102,7 @@ push_errors = PythonOperator(
         python_callable=push_to_ckan, op_args=[error_csv_path, "f7dac661-0f20-4354-bd69-5cf0e39dfc1e"],
         task_id="errors_push_to_ckan", dag=dag,
     )
-
+push_errors << collect_errors_task
 for form_prefix, (callee, resource_id, extra_args) in forms_and_ids.items():
     csv_path = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")+form_prefix+".csv"
     pull_dataset = PythonOperator(
