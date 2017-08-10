@@ -49,7 +49,7 @@ def push_to_ckan(push_csv_path, push_resource_id):
     res = requests.post(
         url=conn.host + '/api/3/action/resource_update',
         data={"id": push_resource_id},
-        headers=conn.extra_dejson,
+        headers={"Authorization": conn.get_password()},
         files={"upload": file},
     )
     logging.info("HTTP Status Code: %s", res.status_code)
