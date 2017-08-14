@@ -87,7 +87,7 @@ unzip = PythonOperator(
 previous = unzip
 
 for form_prefix, (callee, resource_id, extra_args) in forms_and_ids.items():
-    csv_path = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")+form_prefix+".csv"
+    csv_path = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")+form_prefix+"_t3.csv"
     pull_dataset = PythonOperator(
         python_callable=callee, op_args=[form_prefix, csv_path], op_kwargs=extra_args,
         task_id=form_prefix+"_export", dag=dag, provide_context=True
