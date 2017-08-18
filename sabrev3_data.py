@@ -38,9 +38,7 @@ def save_processed_files_to_csv(item_oid, save_path, processor=None, cols=None, 
     oc = OpenClinica(openclinica_conn.host, "S_SABREV3_4350", xml_path=xml_dump_path, auth=openclinica_auth)
 
     df = cpgintegrate.process_files(oc.iter_files(item_oid), processor)
-    is_error = ~df.get("error", df.assign(error=np.NAN).error).isnull()
-    df.loc[~is_error, cols+['Source', 'FileSubjectID'] if cols else df.columns].to_csv(save_path)
-    context['task_instance'].xcom_push("processing_error", df.loc[is_error, ['Source', 'error']].to_dict())
+    df.to_csv(save_path)
 
 
 def push_to_ckan(push_csv_path, push_resource_id):
