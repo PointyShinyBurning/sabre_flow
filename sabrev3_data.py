@@ -27,7 +27,7 @@ def process_files_and_save(save_path, connector=None, connector_args=None, iter_
     connector_instance = connector(*connector_args)
     processor_instance = processor(*processor_args) if processor_args else processor
     (cpgintegrate
-     .process_files(connector_instance.iter_files(iter_files_args), processor_instance)
+     .process_files(connector_instance.iter_files(iter_files_args), processor_instance.to_frame)
      .loc[:, cols if cols else ":"]
      .to_csv(save_path))
 
