@@ -28,7 +28,7 @@ def process_files_and_save(save_path, connector=None, connector_args=None, iter_
     processor_instance = processor(*processor_args) if processor_args else processor
     (cpgintegrate
      .process_files(connector_instance.iter_files(iter_files_args), processor_instance.to_frame)
-     .loc[:, cols if cols else ":"]
+     .loc[:, cols if cols else None:None]
      .to_csv(save_path))
 
 
@@ -61,6 +61,8 @@ xnat_conn_args = (xnat_conn.host, "SABREv3", (xnat_conn.login, xnat_conn.passwor
 
 forms_and_ids = {'F_ANTHROPO': ('40aa2125-2132-473b-9a06-302ed97060a6', save_dataset,
                                 [OpenClinica, openclinica_conn_args, ['F_ANTHROPO']]),
+                'F_FALLSRISKSAB': ('40aa2125-2132-473b-9a06-302ed97060a6', save_dataset,
+                                [OpenClinica, openclinica_conn_args, ['	F_FALLSRISKSAB']]),
                  'I_ANTHR_BIOIMPEDANCEFILE': ('f1755dba-b898-4af4-bb4e-0c7977ef8a37', process_files_and_save,
                                               [OpenClinica, openclinica_conn_args,
                                                'I_ANTHR_BIOIMPEDANCEFILE', tanita_bioimpedance,
