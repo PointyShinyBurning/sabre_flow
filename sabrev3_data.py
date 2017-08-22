@@ -24,8 +24,8 @@ def unzip_first_file(zip_path, destination):
 
 def process_files_and_save(save_path, connector=None, connector_args=None, iter_files_args=None,
                            processor=None, processor_args=None, cols=None, **context):
-    connector_instance = connector(**connector_args)
-    processor_instance = processor(**processor_args) if processor_args else processor
+    connector_instance = connector(*connector_args)
+    processor_instance = processor(*processor_args) if processor_args else processor
     (cpgintegrate
      .process_files(connector_instance.iter_files(iter_files_args), processor_instance)
      .loc[:, cols if cols else ":"]
@@ -33,7 +33,7 @@ def process_files_and_save(save_path, connector=None, connector_args=None, iter_
 
 
 def save_dataset(save_path, connector=None, connector_args=None, dataset_args=None, **context):
-    connector(**connector_args)\
+    connector(*connector_args)\
         .get_dataset(dataset_args)\
         .to_csv(save_path)
 
@@ -59,7 +59,7 @@ xnat_conn = BaseHook.get_connection('xnat')
 xnat_conn_args = (xnat_conn.host, "SABREv3", (xnat_conn.login, xnat_conn.password))
 
 
-forms_and_ids = {'F_ANTHROPO': ('40aa2125-2132-473b-9a06-302ed97060a6',save_dataset,
+forms_and_ids = {'F_ANTHROPO': ('40aa2125-2132-473b-9a06-302ed97060a6', save_dataset,
                                 [OpenClinica, openclinica_conn_args, ['F_ANTHROPO']]),
                  'I_ANTHR_BIOIMPEDANCEFILE': ('f1755dba-b898-4af4-bb4e-0c7977ef8a37', process_files_and_save,
                                               [OpenClinica, openclinica_conn_args,
