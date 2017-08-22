@@ -61,7 +61,7 @@ xnat_conn_args = (xnat_conn.host, "SABREv3", (xnat_conn.login, xnat_conn.passwor
 
 forms_and_ids = {'F_ANTHROPO': ('40aa2125-2132-473b-9a06-302ed97060a6', save_dataset,
                                 [OpenClinica, openclinica_conn_args, ['F_ANTHROPO']]),
-                'F_FALLSRISKSAB': ('40aa2125-2132-473b-9a06-302ed985050', save_dataset,
+                'F_FALLSRISKSAB': ('fa39e257-897f-44d4-81a5-008f140305b0', save_dataset,
                                 [OpenClinica, openclinica_conn_args, ['F_FALLSRISKSAB']]),
                  'I_ANTHR_BIOIMPEDANCEFILE': ('f1755dba-b898-4af4-bb4e-0c7977ef8a37', process_files_and_save,
                                               [OpenClinica, openclinica_conn_args,
