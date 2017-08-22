@@ -34,7 +34,7 @@ def process_files_and_save(save_path, connector=None, connector_args=None, iter_
 
 def save_dataset(save_path, connector=None, connector_args=None, dataset_args=None, **context):
     connector(*connector_args)\
-        .get_dataset(dataset_args)\
+        .get_dataset(*dataset_args)\
         .to_csv(save_path)
 
 
