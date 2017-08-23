@@ -9,7 +9,6 @@ from cpgintegrate.connectors import OpenClinica, XNAT
 from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast
 import requests
 import logging
-import numpy as np
 
 
 def unzip_first_file(zip_path, destination):
@@ -28,7 +27,7 @@ def process_files_and_save(save_path, connector=None, connector_args=None, iter_
     processor_instance = processor(*processor_args) if processor_args else processor
     (cpgintegrate
      .process_files(connector_instance.iter_files(iter_files_args), processor_instance.to_frame)
-     .loc[:, cols if cols else None:None]
+     .filter(axis='columns', **({"items": cols} if cols else {"regex": ".*"}))
      .to_csv(save_path))
 
 
@@ -53,20 +52,20 @@ def push_to_ckan(push_csv_path, push_resource_id):
 
 xml_dump_path = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")+"openclinica.xml"
 openclinica_conn = BaseHook.get_connection('openclinica')
-openclinica_conn_args = (openclinica_conn.host, "S_SABREV3_4350", xml_dump_path, (openclinica_conn.login, openclinica_conn.password))
+openclinica_conn_args = (openclinica_conn.host, "S_SABREV3_4350", xml_dump_path,
+                         (openclinica_conn.login, openclinica_conn.password))
 
 xnat_conn = BaseHook.get_connection('xnat')
 xnat_conn_args = (xnat_conn.host, "SABREv3", (xnat_conn.login, xnat_conn.password))
 
-
 forms_and_ids = {'F_ANTHROPO': ('40aa2125-2132-473b-9a06-302ed97060a6', save_dataset,
                                 [OpenClinica, openclinica_conn_args, ['F_ANTHROPO']]),
-                'F_FALLSRISKSAB': ('fa39e257-897f-44d4-81a5-008f140305b0', save_dataset,
-                                [OpenClinica, openclinica_conn_args, ['F_FALLSRISKSAB']]),
+                 'F_FALLSRISKSAB': ('fa39e257-897f-44d4-81a5-008f140305b0', save_dataset,
+                                    [OpenClinica, openclinica_conn_args, ['F_FALLSRISKSAB']]),
                  'I_ANTHR_BIOIMPEDANCEFILE': ('f1755dba-b898-4af4-bb4e-0c7977ef8a37', process_files_and_save,
                                               [OpenClinica, openclinica_conn_args,
                                                'I_ANTHR_BIOIMPEDANCEFILE', tanita_bioimpedance,
-                                                   None, ['BMI_WEIGHT', 'BODYFAT_FATM', 'BODYFAT_FATP']]),
+                                               None, ['BMI_WEIGHT', 'BODYFAT_FATM', 'BODYFAT_FATP']]),
                  'I_LIVER_ELASTOGRAPHYFILE': ('e751379f-2a2b-472c-b454-05cf83d8f099', process_files_and_save,
                                               [OpenClinica, openclinica_conn_args,
                                                'I_LIVER_ELASTOGRAPHYFILE', epiq7_liverelast]),
