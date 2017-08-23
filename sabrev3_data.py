@@ -24,9 +24,9 @@ def unzip_first_file(zip_path, destination):
 def process_files_and_save(save_path, connector=None, connector_args=None, iter_files_args=None,
                            processor=None, processor_args=None, cols=None, **context):
     connector_instance = connector(*connector_args)
-    processor_instance = processor(*processor_args) if processor_args else processor
+    processor_instance = processor(*processor_args).to_frame if processor_args else processor
     (cpgintegrate
-     .process_files(connector_instance.iter_files(iter_files_args), processor_instance.to_frame)
+     .process_files(connector_instance.iter_files(iter_files_args), processor_instance)
      .filter(axis='columns', **({"items": cols} if cols else {"regex": ".*"}))
      .to_csv(save_path))
 
@@ -64,11 +64,11 @@ forms_and_ids = {'F_ANTHROPO': ('40aa2125-2132-473b-9a06-302ed97060a6', save_dat
                                     [OpenClinica, openclinica_conn_args, ['F_FALLSRISKSAB']]),
                  'I_ANTHR_BIOIMPEDANCEFILE': ('f1755dba-b898-4af4-bb4e-0c7977ef8a37', process_files_and_save,
                                               [OpenClinica, openclinica_conn_args,
-                                               'I_ANTHR_BIOIMPEDANCEFILE', tanita_bioimpedance,
+                                               'I_ANTHR_BIOIMPEDANCEFILE', tanita_bioimpedance.to_frame,
                                                None, ['BMI_WEIGHT', 'BODYFAT_FATM', 'BODYFAT_FATP']]),
                  'I_LIVER_ELASTOGRAPHYFILE': ('e751379f-2a2b-472c-b454-05cf83d8f099', process_files_and_save,
                                               [OpenClinica, openclinica_conn_args,
-                                               'I_LIVER_ELASTOGRAPHYFILE', epiq7_liverelast]),
+                                               'I_LIVER_ELASTOGRAPHYFILE', epiq7_liverelast.to_frame]),
                  }
 
 default_args = {
