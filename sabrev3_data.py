@@ -53,8 +53,8 @@ oc_args = {"connector_class": OpenClinica, "connection_id": 'openclinica', "conn
            "connector_kwargs": {"xml_path": oc_xml_path}, "dag": dag}
 
 operators_resource_ids = [
-    (CPGDatasetToCsv("F_ANTHROPO", **oc_args, dataset_args=['F_ANTHROPO']), '40aa2125-2132-473b-9a06-302ed97060a6'),
-    (CPGDatasetToCsv("F_FALLSRISKSAB", **oc_args, dataset_args=['F_FALLSRISKSAB']),
+    (CPGDatasetToCsv(task_id="F_ANTHROPO", **oc_args, dataset_args=['F_ANTHROPO']), '40aa2125-2132-473b-9a06-302ed97060a6'),
+    (CPGDatasetToCsv(task_id="F_FALLSRISKSAB", **oc_args, dataset_args=['F_FALLSRISKSAB']),
      'fa39e257-897f-44d4-81a5-008f140305b0'),
 ]
 
