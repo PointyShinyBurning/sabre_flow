@@ -84,7 +84,7 @@ for operator, ckan_resource_id in operators_resource_ids:
     push_dataset << operator
 
     # Run the OpenClinica extracts sequentially because its session management is stoopid
-    if isinstance(operator.connector_class, OpenClinica):
+    if operator.connector_class == OpenClinica:
         previous = operator
     else:
         previous = unzip
