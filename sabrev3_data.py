@@ -57,8 +57,12 @@ operators_resource_ids = [
     (CPGDatasetToCsv(task_id="F_FALLSRISKSAB", **oc_args, dataset_args=['F_FALLSRISKSAB']),
      'fa39e257-897f-44d4-81a5-008f140305b0'),
     (CPGProcessorToCsv(task_id="I_ANTHR_BIOIMPEDANCEFILE", **oc_args,
-                       iter_files_args=['I_ANTHR_BIOIMPEDANCEFILE'], processor=tanita_bioimpedance.to_frame),
-     'f1755dba-b898-4af4-bb4e-0c7977ef8a37')
+                       iter_files_args=['I_ANTHR_BIOIMPEDANCEFILE'], processor=tanita_bioimpedance.to_frame,
+                       filter_cols=['BMI_WEIGHT', 'BODYFAT_FATM', 'BODYFAT_FATP']),
+     'f1755dba-b898-4af4-bb4e-0c7977ef8a37'),
+    (CPGProcessorToCsv(task_id="I_LIVER_ELASTOGRAPHYFILE", **oc_args, iter_files_args=['I_LIVER_ELASTOGRAPHYFILE'],
+                       processor=epiq7_liverelast.to_frame),
+     'e751379f-2a2b-472c-b454-05cf83d8f099'),
 ]
 
 unzip = PythonOperator(
