@@ -10,6 +10,8 @@ from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast
 import requests
 import logging
 from airflow.operators.cpg_plugin import CPGDatasetToCsv, CPGProcessorToCsv
+import os
+import time
 
 
 def unzip_first_file(zip_path, destination):
@@ -22,17 +24,20 @@ def unzip_first_file(zip_path, destination):
     destination_file.close()
 
 
-def push_to_ckan(push_csv_path, push_resource_id):
+def push_to_ckan(push_csv_path, push_resource_id, **context):
     conn = BaseHook.get_connection('ckan')
-    file = open(push_csv_path, 'rb')
-    res = requests.post(
-        url=conn.host + '/api/3/action/resource_update',
-        data={"id": push_resource_id},
-        headers={"Authorization": conn.get_password()},
-        files={"upload": file},
-    )
-    logging.info("HTTP Status Code: %s", res.status_code)
-    assert res.status_code == 200
+    if os.path.getmtime(push_csv_path) > context['execution_date'].timestamp:
+        file = open(push_csv_path, 'rb')
+        res = requests.post(
+            url=conn.host + '/api/3/action/resource_update',
+            data={"id": push_resource_id},
+            headers={"Authorization": conn.get_password()},
+            files={"upload": file},
+        )
+        logging.info("HTTP Status Code: %s", res.status_code)
+        assert res.status_code == 200
+    else:
+        logging.info("csv unaltered by this run, not pushing")
 
 csv_dir = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")
 
@@ -82,7 +87,7 @@ for operator, ckan_resource_id in operators_resource_ids:
 
     push_dataset = PythonOperator(
         python_callable=push_to_ckan, op_args=[operator.csv_path, ckan_resource_id],
-        task_id=operator.task_id + "_push_to_ckan", dag=dag,
+        task_id=operator.task_id + "_push_to_ckan", dag=dag, provide_context=True
     )
 
     push_dataset << operator
