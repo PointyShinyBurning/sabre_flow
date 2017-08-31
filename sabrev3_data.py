@@ -26,7 +26,7 @@ def unzip_first_file(zip_path, destination):
 
 def push_to_ckan(push_csv_path, push_resource_id, **context):
     conn = BaseHook.get_connection('ckan')
-    if os.path.getmtime(push_csv_path) > context['execution_date'].timestamp:
+    if os.path.getmtime(push_csv_path) > context['execution_date'].timestamp():
         file = open(push_csv_path, 'rb')
         res = requests.post(
             url=conn.host + '/api/3/action/resource_update',
