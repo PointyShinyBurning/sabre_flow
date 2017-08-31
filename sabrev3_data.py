@@ -56,6 +56,9 @@ operators_resource_ids = [
     (CPGDatasetToCsv(task_id="F_ANTHROPO", **oc_args, dataset_args=['F_ANTHROPO']), '40aa2125-2132-473b-9a06-302ed97060a6'),
     (CPGDatasetToCsv(task_id="F_FALLSRISKSAB", **oc_args, dataset_args=['F_FALLSRISKSAB']),
      'fa39e257-897f-44d4-81a5-008f140305b0'),
+    (CPGProcessorToCsv(task_id="I_ANTHR_BIOIMPEDANCEFILE", **oc_args,
+                       iter_files_args=['I_ANTHR_BIOIMPEDANCEFILE'], processor=tanita_bioimpedance),
+     'f1755dba-b898-4af4-bb4e-0c7977ef8a37')
 ]
 
 unzip = PythonOperator(
