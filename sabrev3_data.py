@@ -9,7 +9,7 @@ from cpgintegrate.connectors import OpenClinica, XNAT
 from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast
 import requests
 import logging
-from airflow.operator.cpg_plugin import CPGDatasetToCsv, CPGProcessorToCsv
+from airflow.operators.cpg_plugin import CPGDatasetToCsv, CPGProcessorToCsv
 
 
 def unzip_first_file(zip_path, destination):
