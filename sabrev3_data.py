@@ -6,7 +6,7 @@ from datetime import datetime
 import shutil
 import cpgintegrate
 from cpgintegrate.connectors import OpenClinica, XNAT
-from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast
+from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr
 import requests
 import logging
 from airflow.operators.cpg_plugin import CPGDatasetToCsv, CPGProcessorToCsv
@@ -56,6 +56,8 @@ dag = DAG('sabrev3', default_args=default_args)
 oc_xml_path = csv_dir + "openclinica.xml"
 oc_args = {"connector_class": OpenClinica, "connection_id": 'openclinica', "connector_args": ['S_SABREV3_4350'],
            "connector_kwargs": {"xml_path": oc_xml_path}, "dag": dag}
+xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args": ['SABREv3'],
+             "dag": dag}
 
 operators_resource_ids = [
     (CPGDatasetToCsv(task_id="F_ANTHROPO", **oc_args, dataset_args=['F_ANTHROPO']), '40aa2125-2132-473b-9a06-302ed97060a6'),
@@ -68,6 +70,11 @@ operators_resource_ids = [
     (CPGProcessorToCsv(task_id="I_LIVER_ELASTOGRAPHYFILE", **oc_args, iter_files_args=['I_LIVER_ELASTOGRAPHYFILE'],
                        processor=epiq7_liverelast.to_frame),
      'e751379f-2a2b-472c-b454-05cf83d8f099'),
+    (CPGProcessorToCsv(task_id="SR_BONE_AND_ADIPOSE", **xnat_args, processor=dicom_sr.to_frame,
+                       iter_files_kwargs={
+                           "experiment_selector": lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
+                           "scan_selector": lambda x: x.xsiType in ["xnat:srScanData","xnat:otherDicomScanData"]}),
+     'e751379f-2a2d-472c-b454-05cf83d8f099')
 ]
 
 unzip = PythonOperator(
