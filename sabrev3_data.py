@@ -4,14 +4,12 @@ from airflow.hooks.base_hook import BaseHook
 from airflow.operators.python_operator import PythonOperator
 from datetime import datetime
 import shutil
-import cpgintegrate
 from cpgintegrate.connectors import OpenClinica, XNAT
 from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr
 import requests
 import logging
 from airflow.operators.cpg_plugin import CPGDatasetToCsv, CPGProcessorToCsv
 import os
-import time
 
 
 def unzip_first_file(zip_path, destination):
