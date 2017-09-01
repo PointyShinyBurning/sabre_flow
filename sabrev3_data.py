@@ -75,7 +75,7 @@ operators_resource_ids = [
      'f1755dba-b898-4af4-bb4e-0c7977ef8a37'),
     (CPGProcessorToCsv(task_id="I_LIVER_ELASTOGRAPHYFILE", **oc_args, iter_files_args=['I_LIVER_ELASTOGRAPHYFILE'],
                        processor=epiq7_liverelast.to_frame),
-     'e751379f-2a2b-472c-b454-05cf83d8f099'),
+     '1d4f32c0-f21f-458c-b32c-b75844500d37'),
 ]
 
 unzip = PythonOperator(
