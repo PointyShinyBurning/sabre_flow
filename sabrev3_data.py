@@ -60,6 +60,12 @@ xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args":
              "dag": dag}
 
 operators_resource_ids = [
+    (CPGProcessorToCsv(task_id="SR_BONE_AND_ADIPOSE", **xnat_args, processor=dicom_sr.to_frame,
+                       iter_files_kwargs={
+                           "experiment_selector": lambda x: x[
+                                                                'xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
+                           "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]}),
+     'e751379f-2a2d-472c-b454-05cf83d8f099'),
     (CPGDatasetToCsv(task_id="F_ANTHROPO", **oc_args, dataset_args=['F_ANTHROPO']), '40aa2125-2132-473b-9a06-302ed97060a6'),
     (CPGDatasetToCsv(task_id="F_FALLSRISKSAB", **oc_args, dataset_args=['F_FALLSRISKSAB']),
      'fa39e257-897f-44d4-81a5-008f140305b0'),
@@ -70,11 +76,6 @@ operators_resource_ids = [
     (CPGProcessorToCsv(task_id="I_LIVER_ELASTOGRAPHYFILE", **oc_args, iter_files_args=['I_LIVER_ELASTOGRAPHYFILE'],
                        processor=epiq7_liverelast.to_frame),
      'e751379f-2a2b-472c-b454-05cf83d8f099'),
-    (CPGProcessorToCsv(task_id="SR_BONE_AND_ADIPOSE", **xnat_args, processor=dicom_sr.to_frame,
-                       iter_files_kwargs={
-                           "experiment_selector": lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
-                           "scan_selector": lambda x: x.xsiType in ["xnat:srScanData","xnat:otherDicomScanData"]}),
-     'e751379f-2a2d-472c-b454-05cf83d8f099')
 ]
 
 unzip = PythonOperator(
