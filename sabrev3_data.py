@@ -58,10 +58,18 @@ xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args":
              "dag": dag}
 
 operators_resource_ids = [
+    (CPGProcessorToCsv(task_id="SR_ULTRASOUND", **xnat_args, processor=dicom_sr.to_frame,
+                       iter_files_args={
+                           "experiment_selector":
+                               lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'Philips Medical Systems'
+                                         and x['xnat:imagesessiondata/scanner/model'] != 'Achieva',
+                           "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]
+                       }),
+     '74d73d13-89da-421d-b046-3e463ffa8b8f'),
     (CPGProcessorToCsv(task_id="SR_BONE_AND_ADIPOSE", **xnat_args, processor=dicom_sr.to_frame,
                        iter_files_kwargs={
-                           "experiment_selector": lambda x: x[
-                                                                'xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
+                           "experiment_selector":
+                               lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
                            "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]}),
      '1d4f32c0-f21f-458c-b32c-b75844500d37'),
     (CPGDatasetToCsv(task_id="F_ANTHROPO", **oc_args, dataset_args=['F_ANTHROPO']), '40aa2125-2132-473b-9a06-302ed97060a6'),
