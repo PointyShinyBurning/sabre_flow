@@ -63,7 +63,7 @@ operators_resource_ids = [
                            "experiment_selector": lambda x: x[
                                                                 'xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
                            "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]}),
-     'e751379f-2a2d-472c-b454-05cf83d8f099'),
+     '1d4f32c0-f21f-458c-b32c-b75844500d37'),
     (CPGDatasetToCsv(task_id="F_ANTHROPO", **oc_args, dataset_args=['F_ANTHROPO']), '40aa2125-2132-473b-9a06-302ed97060a6'),
     (CPGDatasetToCsv(task_id="F_FALLSRISKSAB", **oc_args, dataset_args=['F_FALLSRISKSAB']),
      'fa39e257-897f-44d4-81a5-008f140305b0'),
@@ -73,7 +73,7 @@ operators_resource_ids = [
      'f1755dba-b898-4af4-bb4e-0c7977ef8a37'),
     (CPGProcessorToCsv(task_id="I_LIVER_ELASTOGRAPHYFILE", **oc_args, iter_files_args=['I_LIVER_ELASTOGRAPHYFILE'],
                        processor=epiq7_liverelast.to_frame),
-     '1d4f32c0-f21f-458c-b32c-b75844500d37'),
+     'e751379f-2a2b-472c-b454-05cf83d8f099'),
 ]
 
 unzip = PythonOperator(
