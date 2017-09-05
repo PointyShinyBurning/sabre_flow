@@ -59,7 +59,7 @@ xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args":
 
 operators_resource_ids = [
     (CPGProcessorToCsv(task_id="SR_ULTRASOUND", **xnat_args, processor=dicom_sr.to_frame,
-                       iter_files_args={
+                       iter_files_kwargs={
                            "experiment_selector":
                                lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'Philips Medical Systems'
                                          and x['xnat:imagesessiondata/scanner/model'] != 'Achieva',
