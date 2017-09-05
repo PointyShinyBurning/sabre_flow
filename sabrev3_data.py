@@ -10,7 +10,8 @@ import requests
 import logging
 from airflow.operators.cpg_plugin import CPGDatasetToCsv, CPGProcessorToCsv
 import os
-
+import re
+import pandas
 
 def unzip_first_file(zip_path, destination):
     zip_file = zipfile.ZipFile(zip_path)
@@ -37,6 +38,16 @@ def push_to_ckan(push_csv_path, push_resource_id, **context):
     else:
         logging.info("csv unaltered by this run, not pushing")
 
+
+def ult_sr_sats(df):
+    sat_cols = [col for col in df.columns if re.search("^.SAT (Left|Right)_Distance\(mm\)_?\d?$", col)]
+    filtered = df.dropna(how="all", subset=sat_cols, axis=0)
+    out = filtered.loc[:, ['Source','study_date']]
+    grouped = filtered.loc[:, sat_cols].groupby(lambda x: x.split("_")[0], axis=1)
+    aggs = pandas.concat([grouped.agg(func).rename(columns=lambda x: x+"_"+func)
+                          for func in ["mean", "median", "std"]], axis=1)
+    return pandas.concat([aggs, out], axis=1)
+
 csv_dir = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")
 
 default_args = {
@@ -58,7 +69,7 @@ xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args":
              "dag": dag}
 
 operators_resource_ids = [
-    (CPGProcessorToCsv(task_id="SR_ULTRASOUND", **xnat_args, processor=dicom_sr.to_frame,
+    (CPGProcessorToCsv(task_id="SR_SAT", **xnat_args, processor=dicom_sr.to_frame, post_processor=ult_sr_sats,
                        iter_files_kwargs={
                            "experiment_selector":
                                lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'Philips Medical Systems'
