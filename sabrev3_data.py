@@ -44,7 +44,7 @@ def push_to_ckan(push_csv_path, push_resource_id):
 def ult_sr_sats(df):
     sat_cols = [col for col in df.columns if re.search("^.SAT (Left|Right)_Distance\(mm\)_?\d?$", col)]
     filtered = df.dropna(how="all", subset=sat_cols, axis=0)
-    out = filtered.loc[:, ['Source', 'study_date', 'FileSubjectID']]
+    out = filtered.loc[:, CPGDatasetToCsv.cols_always_present + ['study_date']]
     grouped = filtered.loc[:, sat_cols].apply(pandas.to_numeric).groupby(lambda x: x.split("_")[0], axis=1)
     aggs = pandas.concat([grouped.agg(func).rename(columns=lambda x: x+"_"+func)
                           for func in ["mean", "median", "std"]], axis=1).round(2)
