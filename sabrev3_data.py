@@ -46,7 +46,7 @@ def ult_sr_sats(df):
     out = filtered.loc[:, ['Source', 'study_date']]
     grouped = filtered.loc[:, sat_cols].apply(pandas.to_numeric).groupby(lambda x: x.split("_")[0], axis=1)
     aggs = pandas.concat([grouped.agg(func).rename(columns=lambda x: x+"_"+func)
-                          for func in ["mean", "median", "std"]], axis=1)
+                          for func in ["mean", "median", "std"]], axis=1).round(2)
     return pandas.concat([aggs, out], axis=1)
 
 csv_dir = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")
