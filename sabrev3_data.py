@@ -61,70 +61,69 @@ default_args = {
     'csv_dir': csv_dir,
 }
 
-dag = DAG('sabrev3', default_args=default_args)
+with DAG('sabrev3', default_args=default_args) as dag:
 
-oc_xml_path = csv_dir + "openclinica.xml"
-oc_args = {"connector_class": OpenClinica, "connection_id": 'openclinica', "connector_args": ['S_SABREV3_4350'],
-           "connector_kwargs": {"xml_path": oc_xml_path}, "dag": dag}
-xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args": ['SABREv3'],
-             "dag": dag}
+    oc_xml_path = csv_dir + "openclinica.xml"
+    oc_args = {"connector_class": OpenClinica, "connection_id": 'openclinica', "connector_args": ['S_SABREV3_4350'],
+               "connector_kwargs": {"xml_path": oc_xml_path}}
+    xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args": ['SABREv3'],}
 
-operators_resource_ids = [
-    (CPGProcessorToCsv(task_id="SR_SAT", **xnat_args, processor=dicom_sr.to_frame, post_processor=ult_sr_sats,
-                       iter_files_kwargs={
-                           "experiment_selector":
-                               lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'Philips Medical Systems'
-                                         and x['xnat:imagesessiondata/scanner/model'] != 'Achieva',
-                           "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]
-                       }),
-     '74d73d13-89da-421d-b046-3e463ffa8b8f'),
-    (CPGProcessorToCsv(task_id="SR_BONE_AND_ADIPOSE", **xnat_args, processor=dicom_sr.to_frame,
-                       iter_files_kwargs={
-                           "experiment_selector":
-                               lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
-                           "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]}),
-     '1d4f32c0-f21f-458c-b32c-b75844500d37'),
-    (CPGDatasetToCsv(task_id="F_ANTHROPO", **oc_args, dataset_args=['F_ANTHROPO']), '40aa2125-2132-473b-9a06-302ed97060a6'),
-    (CPGDatasetToCsv(task_id="F_FALLSRISKSAB", **oc_args, dataset_args=['F_FALLSRISKSAB']),
-     'fa39e257-897f-44d4-81a5-008f140305b0'),
-    (CPGProcessorToCsv(task_id="I_ANTHR_BIOIMPEDANCEFILE", **oc_args,
-                       iter_files_args=['I_ANTHR_BIOIMPEDANCEFILE'], processor=tanita_bioimpedance.to_frame,
-                       filter_cols=['BMI_WEIGHT', 'BODYFAT_FATM', 'BODYFAT_FATP']),
-     'f1755dba-b898-4af4-bb4e-0c7977ef8a37'),
-    (CPGProcessorToCsv(task_id="I_LIVER_ELASTOGRAPHYFILE", **oc_args, iter_files_args=['I_LIVER_ELASTOGRAPHYFILE'],
-                       processor=epiq7_liverelast.to_frame),
-     'e751379f-2a2b-472c-b454-05cf83d8f099'),
-]
+    operators_resource_ids = [
+        (CPGProcessorToCsv(task_id="SR_SAT", **xnat_args, processor=dicom_sr.to_frame, post_processor=ult_sr_sats,
+                           iter_files_kwargs={
+                               "experiment_selector":
+                                   lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'Philips Medical Systems'
+                                             and x['xnat:imagesessiondata/scanner/model'] != 'Achieva',
+                               "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]
+                           }),
+         '74d73d13-89da-421d-b046-3e463ffa8b8f'),
+        (CPGProcessorToCsv(task_id="SR_BONE_AND_ADIPOSE", **xnat_args, processor=dicom_sr.to_frame,
+                           iter_files_kwargs={
+                               "experiment_selector":
+                                   lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
+                               "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]}),
+         '1d4f32c0-f21f-458c-b32c-b75844500d37'),
+        (CPGDatasetToCsv(task_id="F_ANTHROPO", **oc_args, dataset_args=['F_ANTHROPO']), '40aa2125-2132-473b-9a06-302ed97060a6'),
+        (CPGDatasetToCsv(task_id="F_FALLSRISKSAB", **oc_args, dataset_args=['F_FALLSRISKSAB']),
+         'fa39e257-897f-44d4-81a5-008f140305b0'),
+        (CPGProcessorToCsv(task_id="I_ANTHR_BIOIMPEDANCEFILE", **oc_args,
+                           iter_files_args=['I_ANTHR_BIOIMPEDANCEFILE'], processor=tanita_bioimpedance.to_frame,
+                           filter_cols=['BMI_WEIGHT', 'BODYFAT_FATM', 'BODYFAT_FATP']),
+         'f1755dba-b898-4af4-bb4e-0c7977ef8a37'),
+        (CPGProcessorToCsv(task_id="I_LIVER_ELASTOGRAPHYFILE", **oc_args, iter_files_args=['I_LIVER_ELASTOGRAPHYFILE'],
+                           processor=epiq7_liverelast.to_frame),
+         'e751379f-2a2b-472c-b454-05cf83d8f099'),
+    ]
 
-unzip = PythonOperator(
-    python_callable=unzip_first_file,
-    op_args=[
-        BaseHook.get_connection('openclinica_export_zip').extra_dejson.get("path"),
-        oc_xml_path
-    ],
-    task_id='unzip', dag=dag,
-)
-
-previous = unzip
-
-for operator, ckan_resource_id in operators_resource_ids:
-
-    operator << previous
-
-    check_file = ShortCircuitOperator(task_id=operator.task_id+"_file_check", python_callable=check_file_altered,
-                                      op_args=[operator.csv_path])
-
-    check_file << operator
-
-    push_dataset = PythonOperator(
-        python_callable=push_to_ckan, op_args=[operator.csv_path, ckan_resource_id],
-        task_id=operator.task_id + "_push_to_ckan", provide_context=True
+    unzip = PythonOperator(
+        python_callable=unzip_first_file,
+        op_args=[
+            BaseHook.get_connection('openclinica_export_zip').extra_dejson.get("path"),
+            oc_xml_path
+        ],
+        task_id='unzip',
     )
 
-    push_dataset << check_file
+    previous = unzip
 
-    # Run the OpenClinica extracts sequentially because its session management is stoopid
-    if operator.connector_class == OpenClinica:
-        previous = operator
-    else:
-        previous = unzip
+    for operator, ckan_resource_id in operators_resource_ids:
+
+        operator << previous
+
+        check_file = ShortCircuitOperator(task_id=operator.task_id+"_file_check", python_callable=check_file_altered,
+                                          op_args=[operator.csv_path])
+
+        check_file << operator
+
+        push_dataset = PythonOperator(
+            python_callable=push_to_ckan, op_args=[operator.csv_path, ckan_resource_id],
+            task_id=operator.task_id + "_push_to_ckan", provide_context=True
+        )
+
+        push_dataset << check_file
+
+        # Run the OpenClinica extracts sequentially because its session management is stoopid
+        if operator.connector_class == OpenClinica:
+            previous = operator
+        else:
+            previous = unzip
