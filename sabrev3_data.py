@@ -1,7 +1,7 @@
 from airflow import DAG
 import zipfile
 from airflow.hooks.base_hook import BaseHook
-from airflow.operators.python_operator import PythonOperator
+from airflow.operators.python_operator import PythonOperator, ShortCircuitOperator
 from datetime import datetime
 import shutil
 from cpgintegrate.connectors import OpenClinica, XNAT
@@ -23,20 +23,21 @@ def unzip_first_file(zip_path, destination):
     destination_file.close()
 
 
+def check_file_altered(file_path, **context):
+    return os.path.getmtime(file_path) > context['execution_date'].timestamp()
+
+
 def push_to_ckan(push_csv_path, push_resource_id, **context):
     conn = BaseHook.get_connection('ckan')
-    if os.path.getmtime(push_csv_path) > context['execution_date'].timestamp():
-        file = open(push_csv_path, 'rb')
-        res = requests.post(
-            url=conn.host + '/api/3/action/resource_update',
-            data={"id": push_resource_id},
-            headers={"Authorization": conn.get_password()},
-            files={"upload": file},
-        )
-        logging.info("HTTP Status Code: %s", res.status_code)
-        assert res.status_code == 200
-    else:
-        logging.info("csv unaltered by this run, not pushing")
+    file = open(push_csv_path, 'rb')
+    res = requests.post(
+        url=conn.host + '/api/3/action/resource_update',
+        data={"id": push_resource_id},
+        headers={"Authorization": conn.get_password()},
+        files={"upload": file},
+    )
+    logging.info("HTTP Status Code: %s", res.status_code)
+    assert res.status_code == 200
 
 
 def ult_sr_sats(df):
@@ -110,12 +111,17 @@ for operator, ckan_resource_id in operators_resource_ids:
 
     operator << previous
 
+    check_file = ShortCircuitOperator(task_id=operator.task_id+"_file_check", python_callable=check_file_altered,
+                                      op_args=[operator.csv_path])
+
+    check_file << operator
+
     push_dataset = PythonOperator(
         python_callable=push_to_ckan, op_args=[operator.csv_path, ckan_resource_id],
-        task_id=operator.task_id + "_push_to_ckan", dag=dag, provide_context=True
+        task_id=operator.task_id + "_push_to_ckan", provide_context=True
     )
 
-    push_dataset << operator
+    push_dataset << check_file
 
     # Run the OpenClinica extracts sequentially because its session management is stoopid
     if operator.connector_class == OpenClinica:
