@@ -27,7 +27,7 @@ def check_file_altered(file_path, **context):
     return os.path.getmtime(file_path) > context['execution_date'].timestamp()
 
 
-def push_to_ckan(push_csv_path, push_resource_id, **context):
+def push_to_ckan(push_csv_path, push_resource_id):
     conn = BaseHook.get_connection('ckan')
     file = open(push_csv_path, 'rb')
     res = requests.post(
@@ -111,13 +111,13 @@ with DAG('sabrev3', default_args=default_args) as dag:
         operator << previous
 
         check_file = ShortCircuitOperator(task_id=operator.task_id+"_file_check", python_callable=check_file_altered,
-                                          op_args=[operator.csv_path])
+                                          op_args=[operator.csv_path], provide_context=True,)
 
         check_file << operator
 
         push_dataset = PythonOperator(
             python_callable=push_to_ckan, op_args=[operator.csv_path, ckan_resource_id],
-            task_id=operator.task_id + "_push_to_ckan", provide_context=True
+            task_id=operator.task_id + "_push_to_ckan",
         )
 
         push_dataset << check_file
