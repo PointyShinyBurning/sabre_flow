@@ -58,7 +58,7 @@ default_args = {
     'email': ['d.key@ucl.ac.uk'],
     'email_on_failure': True,
     'email_on_retry': True,
-    'start_date': datetime(2017, 7, 20),
+    'start_date': datetime(2017, 9, 6),
     'csv_dir': csv_dir,
 }
 
