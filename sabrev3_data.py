@@ -66,8 +66,8 @@ with DAG('sabrev3', default_args=default_args) as dag:
 
     oc_xml_path = csv_dir + "openclinica.xml"
     oc_args = {"connector_class": OpenClinica, "connection_id": 'openclinica', "connector_args": ['S_SABREV3_4350'],
-               "connector_kwargs": {"xml_path": oc_xml_path}}
-    xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args": ['SABREv3'],}
+               "connector_kwargs": {"xml_path": oc_xml_path}, "pool": "OpenClinica", }
+    xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args": ['SABREv3'], }
 
     operators_resource_ids = [
         (CPGProcessorToCsv(task_id="SR_SAT", **xnat_args, processor=dicom_sr.to_frame, post_processor=ult_sr_sats,
@@ -109,7 +109,7 @@ with DAG('sabrev3', default_args=default_args) as dag:
 
     for operator, ckan_resource_id in operators_resource_ids:
 
-        operator << previous
+        operator << unzip
 
         check_file = ShortCircuitOperator(task_id=operator.task_id+"_file_check", python_callable=check_file_altered,
                                           op_args=[operator.csv_path], provide_context=True,)
@@ -123,8 +123,3 @@ with DAG('sabrev3', default_args=default_args) as dag:
 
         push_dataset << check_file
 
-        # Run the OpenClinica extracts sequentially because its session management is stoopid
-        if operator.connector_class == OpenClinica:
-            previous = operator
-        else:
-            previous = unzip
