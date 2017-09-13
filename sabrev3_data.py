@@ -50,6 +50,7 @@ def ult_sr_sats(df):
                           for func in ["mean", "median", "std"]], axis=1).round(2)
     return pandas.concat([aggs, out], axis=1)
 
+
 csv_dir = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")
 
 default_args = {
@@ -67,7 +68,7 @@ with DAG('sabrev3', default_args=default_args) as dag:
     oc_xml_path = csv_dir + "openclinica.xml"
     oc_args = {"connector_class": OpenClinica, "connection_id": 'openclinica', "connector_args": ['S_SABREV3_4350'],
                "connector_kwargs": {"xml_path": oc_xml_path}, "pool": "OpenClinica", }
-    xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args": ['SABREv3'], }
+    xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args": ['SABREv3'], 'cache_name':'sabrev3'}
 
     operators_resource_ids = [
         (CPGProcessorToCsv(task_id="SR_SAT", **xnat_args, processor=dicom_sr.to_frame, post_processor=ult_sr_sats,
@@ -76,7 +77,7 @@ with DAG('sabrev3', default_args=default_args) as dag:
                                    lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'Philips Medical Systems'
                                              and x['xnat:imagesessiondata/scanner/model'] != 'Achieva',
                                "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]
-                           }),
+                           },),
          '74d73d13-89da-421d-b046-3e463ffa8b8f'),
         (CPGProcessorToCsv(task_id="SR_BONE_AND_ADIPOSE", **xnat_args, processor=dicom_sr.to_frame,
                            iter_files_kwargs={
