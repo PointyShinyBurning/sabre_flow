@@ -70,6 +70,10 @@ with DAG('sabrev3', default_args=default_args) as dag:
                "connector_kwargs": {"xml_path": oc_xml_path}, "pool": "OpenClinica", }
     xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args": ['SABREv3'], 'cache_name':'sabrev3'}
 
+    dexa_selector_kwargs = {
+        "experiment_selector": lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
+        "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]}
+
     operators_resource_ids = [
         (CPGProcessorToCsv(task_id="SR_SAT", **xnat_args, processor=dicom_sr.to_frame, post_processor=ult_sr_sats,
                            iter_files_kwargs={
@@ -79,12 +83,18 @@ with DAG('sabrev3', default_args=default_args) as dag:
                                "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]
                            },),
          '74d73d13-89da-421d-b046-3e463ffa8b8f'),
-        (CPGProcessorToCsv(task_id="SR_BONE_AND_ADIPOSE", **xnat_args, processor=dicom_sr.to_frame,
-                           iter_files_kwargs={
-                               "experiment_selector":
-                                   lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
-                               "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]}),
+        (CPGProcessorToCsv(task_id="SR_DEXA_HIP", **xnat_args, processor=dicom_sr.to_frame,
+                           iter_files_kwargs=dexa_selector_kwargs,
+                           row_filter=lambda row: 'Hip' in str(row['Analysis Type'])),
          '1d4f32c0-f21f-458c-b32c-b75844500d37'),
+        (CPGProcessorToCsv(task_id="SR_DEXA_SPINE", **xnat_args, processor=dicom_sr.to_frame,
+                           iter_files_kwargs=dexa_selector_kwargs,
+                           row_filter=lambda row: 'Spine' in str(row['Analysis Type'])),
+         '80f8dd8a-86c5-4c77-a343-799034113256'),
+        (CPGProcessorToCsv(task_id="SR__DEXA_BODY", **xnat_args, processor=dicom_sr.to_frame,
+                           iter_files_kwargs=dexa_selector_kwargs,
+                           row_filter=lambda row: 'Whole Body' in str(row['Analysis Type'])),
+         '5020b7ee-a516-4032-ad44-8a1004571402'),
         (CPGDatasetToCsv(task_id="F_ANTHROPO", **oc_args, dataset_args=['F_ANTHROPO']), '40aa2125-2132-473b-9a06-302ed97060a6'),
         (CPGDatasetToCsv(task_id="F_FALLSRISKSAB", **oc_args, dataset_args=['F_FALLSRISKSAB']),
          'fa39e257-897f-44d4-81a5-008f140305b0'),
