@@ -68,7 +68,8 @@ with DAG('sabrev3', default_args=default_args) as dag:
     oc_xml_path = csv_dir + "openclinica.xml"
     oc_args = {"connector_class": OpenClinica, "connection_id": 'openclinica', "connector_args": ['S_SABREV3_4350'],
                "connector_kwargs": {"xml_path": oc_xml_path}, "pool": "OpenClinica", }
-    xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args": ['SABREv3'], 'cache_name':'sabrev3'}
+    xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args": ['SABREv3'],
+                 'cache_name': 'sabrev3', "pool": "xnat"}
 
     dexa_selector_kwargs = {
         "experiment_selector": lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
@@ -91,7 +92,7 @@ with DAG('sabrev3', default_args=default_args) as dag:
                            iter_files_kwargs=dexa_selector_kwargs,
                            row_filter=lambda row: 'Spine' in str(row['Analysis Type'])),
          '80f8dd8a-86c5-4c77-a343-799034113256'),
-        (CPGProcessorToCsv(task_id="SR__DEXA_BODY", **xnat_args, processor=dicom_sr.to_frame,
+        (CPGProcessorToCsv(task_id="SR_DEXA_BODY", **xnat_args, processor=dicom_sr.to_frame,
                            iter_files_kwargs=dexa_selector_kwargs,
                            row_filter=lambda row: 'Whole Body' in str(row['Analysis Type'])),
          '5020b7ee-a516-4032-ad44-8a1004571402'),
