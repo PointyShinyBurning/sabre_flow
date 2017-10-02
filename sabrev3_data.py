@@ -28,17 +28,32 @@ def check_file_altered(file_path, **context):
     return os.path.getmtime(file_path) > context['execution_date'].timestamp()
 
 
-def push_to_ckan(push_csv_path, push_resource_id):
+def push_to_ckan(push_csv_path, push_package_id):
     conn = BaseHook.get_connection('ckan')
-    file = open(push_csv_path, 'rb')
-    res = requests.post(
-        url=conn.host + '/api/3/action/resource_update',
-        data={"id": push_resource_id},
+    resource_name = os.path.splitext(os.path.basename(push_csv_path))[0]
+    existing_resource_list = requests.get(
+        url=conn.host + '/api/3/action/package_show',
         headers={"Authorization": conn.get_password()},
-        files={"upload": file},
-    )
-    logging.info("HTTP Status Code: %s", res.status_code)
-    assert res.status_code == 200
+        params={"id": push_package_id},
+    ).json()['result']['resources']
+    file = open(push_csv_path, 'rb')
+
+    try:
+        request_data = {"id": [res['id'] for res in existing_resource_list if res['name'] == resource_name][0]}
+        url_ending = '/api/3/action/resource_update'
+    except IndexError:
+        request_data = {"package_id": push_package_id, "name": resource_name}
+        url_ending = '/api/3/action/resource_create'
+        logging.info("Creating resource %s", resource_name)
+
+        res = requests.post(
+            url=conn.host + url_ending,
+            data=request_data,
+            headers={"Authorization": conn.get_password()},
+            files={"upload": file},
+        )
+        logging.info("HTTP Status Code: %s", res.status_code)
+        assert res.status_code == 200
 
 
 def ult_sr_sats(df):
@@ -83,22 +98,23 @@ with DAG('sabrev3', default_args=default_args) as dag:
                                              and x['xnat:imagesessiondata/scanner/model'] != 'Achieva',
                                "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]
                            },),
-         '74d73d13-89da-421d-b046-3e463ffa8b8f'),
+         '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
         (CPGProcessorToCsv(task_id="SR_DEXA_HIP", **xnat_args, processor=dicom_sr.to_frame,
                            iter_files_kwargs=dexa_selector_kwargs,
                            row_filter=lambda row: 'Hip' in str(row['Analysis Type'])),
-         '1d4f32c0-f21f-458c-b32c-b75844500d37'),
+         '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
         (CPGProcessorToCsv(task_id="SR_DEXA_SPINE", **xnat_args, processor=dicom_sr.to_frame,
                            iter_files_kwargs=dexa_selector_kwargs,
                            row_filter=lambda row: 'Spine' in str(row['Analysis Type'])),
-         '80f8dd8a-86c5-4c77-a343-799034113256'),
+         '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
         (CPGProcessorToCsv(task_id="SR_DEXA_BODY", **xnat_args, processor=dicom_sr.to_frame,
                            iter_files_kwargs=dexa_selector_kwargs,
                            row_filter=lambda row: 'Whole Body' in str(row['Analysis Type'])),
-         '5020b7ee-a516-4032-ad44-8a1004571402'),
-        (CPGDatasetToCsv(task_id="F_ANTHROPO", **oc_args, dataset_args=['F_ANTHROPO']), '40aa2125-2132-473b-9a06-302ed97060a6'),
+         '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
+        (CPGDatasetToCsv(task_id="F_ANTHROPO", **oc_args, dataset_args=['F_ANTHROPO']),
+         '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
         (CPGDatasetToCsv(task_id="F_FALLSRISKSAB", **oc_args, dataset_args=['F_FALLSRISKSAB']),
-         'fa39e257-897f-44d4-81a5-008f140305b0'),
+         '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
         (CPGProcessorToCsv(task_id="I_ANTHR_BIOIMPEDANCEFILE", **oc_args,
                            iter_files_args=['I_ANTHR_BIOIMPEDANCEFILE'], processor=tanita_bioimpedance.to_frame,
                            filter_cols=['BMI_WEIGHT', 'TABC_FATP', 'TABC_FATM', 'TABC_FFM', 'TABC_TBW', 'TABC_PMM',
@@ -108,10 +124,10 @@ with DAG('sabrev3', default_args=default_args) as dag:
                                         'TABC_RAFATM', 'TABC_RAFFM', 'TABC_RAPMM', 'TABC_RAIMP', 'TABC_LAFATP',
                                         'TABC_LAFATM', 'TABC_LAFFM', 'TABC_LAPMM', 'TABC_LAIMP', 'TABC_TRFATP',
                                         'TABC_TRFATM', 'TABC_TRFFM', 'TABC_TRPMM']),
-         'f1755dba-b898-4af4-bb4e-0c7977ef8a37'),
+         '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
         (CPGProcessorToCsv(task_id="I_LIVER_ELASTOGRAPHYFILE", **oc_args, iter_files_args=['I_LIVER_ELASTOGRAPHYFILE'],
                            processor=epiq7_liverelast.to_frame),
-         'e751379f-2a2b-472c-b454-05cf83d8f099'),
+         '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
     ]
 
     unzip = PythonOperator(
