@@ -46,14 +46,14 @@ def push_to_ckan(push_csv_path, push_package_id):
         url_ending = '/api/3/action/resource_create'
         logging.info("Creating resource %s", resource_name)
 
-        res = requests.post(
-            url=conn.host + url_ending,
-            data=request_data,
-            headers={"Authorization": conn.get_password()},
-            files={"upload": file},
-        )
-        logging.info("HTTP Status Code: %s", res.status_code)
-        assert res.status_code == 200
+    res = requests.post(
+        url=conn.host + url_ending,
+        data=request_data,
+        headers={"Authorization": conn.get_password()},
+        files={"upload": file},
+    )
+    logging.info("HTTP Status Code: %s", res.status_code)
+    assert res.status_code == 200
 
 
 def ult_sr_sats(df):
