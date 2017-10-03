@@ -60,7 +60,7 @@ def push_to_ckan(push_csv_path, push_package_id):
     if os.path.isfile(json_path):
         datadict_res = requests.post(
             url=conn.host+'/api/3/action/datastore_create',
-            data='{"resource_id":"cae21e30-47f6-49d2-812b-6b002f527afd", "force":"true",fields=%s}' %
+            json='{"resource_id":"cae21e30-47f6-49d2-812b-6b002f527afd", "force":"true",fields=%s}' %
                  open(json_path, 'r').read(),
             headers={"Authorization": conn.get_password()},
         )
