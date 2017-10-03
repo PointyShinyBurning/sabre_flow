@@ -65,7 +65,7 @@ def push_to_ckan(push_csv_path, push_package_id):
             headers={"Authorization": conn.get_password(), "Content-Type": "application/json"},
         )
         logging.info("Data Dictionary Push Status Code: %s", datadict_res.status_code)
-        logging.info(datadict_res.request)
+        logging.info(datadict_res.request.body)
         assert datadict_res.status_code == 200
 
 
