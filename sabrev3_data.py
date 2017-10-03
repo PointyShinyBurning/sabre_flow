@@ -111,7 +111,7 @@ with DAG('sabrev3', default_args=default_args) as dag:
                            iter_files_kwargs=dexa_selector_kwargs,
                            row_filter=lambda row: 'Whole Body' in str(row['Analysis Type'])),
          '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
-        (CPGDatasetToCsv(task_id="F_ANTHROPO", **oc_args, dataset_args=['F_ANTHROPO']),
+        (CPGDatasetToCsv(task_id="F_ANTHROPOMETR", **oc_args, dataset_args=['F_ANTHROPOMETR']),
          '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
         (CPGDatasetToCsv(task_id="F_FALLSRISKSAB", **oc_args, dataset_args=['F_FALLSRISKSAB']),
          '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
