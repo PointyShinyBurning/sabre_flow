@@ -55,6 +55,18 @@ def push_to_ckan(push_csv_path, push_package_id):
     logging.info("HTTP Status Code: %s", res.status_code)
     assert res.status_code == 200
 
+    #Push metadata if exists
+    json_path = os.path.splitext(push_csv_path)[0]+'.json'
+    if os.path.isfile(json_path):
+        datadict_res = requests.post(
+            url=conn.host+'/api/3/action/datastore_create',
+            data='{"resource_id":"cae21e30-47f6-49d2-812b-6b002f527afd", "force":"true",fields=%s}' %
+                 open(json_path, 'r').read(),
+            headers={"Authorization": conn.get_password()},
+        )
+        logging.info("Data Dictionary Push Status Code: %s", datadict_res.status_code)
+        assert datadict_res.status_code == 200
+
 
 def ult_sr_sats(df):
     sat_cols = [col for col in df.columns if re.search("^.SAT (Left|Right)_Distance\(mm\)_?\d?$", col)]
