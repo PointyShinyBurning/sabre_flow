@@ -60,12 +60,11 @@ def push_to_ckan(push_csv_path, push_package_id):
     if os.path.isfile(json_path):
         datadict_res = requests.post(
             url=conn.host+'/api/3/action/datastore_create',
-            data='{"resource_id":"%s", "force":"true",fields=%s}' %
+            data='{"resource_id":"%s", "force":"true","fields"=%s}' %
                  (res.json()['result']['id'], open(json_path, 'r').read()),
             headers={"Authorization": conn.get_password(), "Content-Type": "application/json"},
         )
         logging.info("Data Dictionary Push Status Code: %s", datadict_res.status_code)
-        logging.info(datadict_res.request.body)
         assert datadict_res.status_code == 200
 
 
