@@ -120,7 +120,7 @@ with DAG('sabrev3', default_args=default_args) as dag:
         if isinstance(outputs, str):
             push_list = [(operator, outputs)]
         else:
-            push_list = [CPGProcessorToXCom(souce_task_id=operator.task_id,**processor_args)
+            push_list = [XComDatasetProcess(souce_task_id=operator.task_id,**processor_args)
                 for processor_args, package_id
                          in outputs
             ]
