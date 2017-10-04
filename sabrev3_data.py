@@ -96,7 +96,7 @@ with DAG('sabrev3', default_args=default_args) as dag:
     oc_args = {"connector_class": OpenClinica, "connection_id": 'openclinica', "connector_args": ['S_SABREV3_4350'],
                "connector_kwargs": {"xml_path": oc_xml_path}, "pool": "OpenClinica", }
     xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args": ['SABREv3'],
-                 'cache_name': 'sabrev3', "pool": "xnat"}
+                 "pool": "xnat"}
 
     dexa_selector_kwargs = {
         "experiment_selector": lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
