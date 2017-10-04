@@ -31,7 +31,7 @@ def dataset_freshness_check(source_task_id, **context):
 
 
 def ult_sr_sats(df):
-    sat_cols = [col for col in df.columns if re.search("^.SAT (Left|Right)_Distance\(mm\)_?\d?$", col)]
+    sat_cols = [col for col in df.columns if re.search("^.SAT (Left|Right)_Distance_?\d?$", col)]
     filtered = df.dropna(how="all", subset=sat_cols, axis=0)
     out = filtered.loc[:, XComDatasetProcess.cols_always_present + ['study_date']]
     grouped = filtered.loc[:, sat_cols].apply(pandas.to_numeric).groupby(lambda x: x.split("_")[0], axis=1)
