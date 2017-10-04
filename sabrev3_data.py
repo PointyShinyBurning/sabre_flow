@@ -8,10 +8,11 @@ from cpgintegrate.connectors import OpenClinica, XNAT
 from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr
 import requests
 import logging
-from airflow.operators.cpg_plugin import CPGDatasetToCsv, CPGProcessorToCsv
+from airflow.operators.cpg_plugin import CPGDatasetToXCom, CPGProcessorToXCom, XComDatasetProcess, XComDatasetToCkan
 import os
 import re
 import pandas
+import collections
 
 
 def unzip_first_file(zip_path, destination):
@@ -24,54 +25,14 @@ def unzip_first_file(zip_path, destination):
     destination_file.close()
 
 
-def check_file_altered(file_path, **context):
-    return os.path.getmtime(file_path) > context['execution_date'].timestamp()
-
-
-def push_to_ckan(push_csv_path, push_package_id):
-    conn = BaseHook.get_connection('ckan')
-    resource_name = os.path.splitext(os.path.basename(push_csv_path))[0]
-    existing_resource_list = requests.get(
-        url=conn.host + '/api/3/action/package_show',
-        headers={"Authorization": conn.get_password()},
-        params={"id": push_package_id},
-    ).json()['result']['resources']
-    file = open(push_csv_path, 'rb')
-
-    try:
-        request_data = {"id": [res['id'] for res in existing_resource_list if res['name'] == resource_name][0]}
-        url_ending = '/api/3/action/resource_update'
-    except IndexError:
-        request_data = {"package_id": push_package_id, "name": resource_name}
-        url_ending = '/api/3/action/resource_create'
-        logging.info("Creating resource %s", resource_name)
-
-    res = requests.post(
-        url=conn.host + url_ending,
-        data=request_data,
-        headers={"Authorization": conn.get_password()},
-        files={"upload": file},
-    )
-    logging.info("HTTP Status Code: %s", res.status_code)
-    assert res.status_code == 200
-
-    #Push metadata if exists
-    json_path = os.path.splitext(push_csv_path)[0]+'.json'
-    if os.path.isfile(json_path):
-        datadict_res = requests.post(
-            url=conn.host+'/api/3/action/datastore_create',
-            data='{"resource_id":"%s", "force":"true","fields":%s}' %
-                 (res.json()['result']['id'], open(json_path, 'r').read()),
-            headers={"Authorization": conn.get_password(), "Content-Type": "application/json"},
-        )
-        logging.info("Data Dictionary Push Status Code: %s", datadict_res.status_code)
-        assert datadict_res.status_code == 200
+def dataset_freshness_check(source_task_id, **context):
+    return True
 
 
 def ult_sr_sats(df):
     sat_cols = [col for col in df.columns if re.search("^.SAT (Left|Right)_Distance\(mm\)_?\d?$", col)]
     filtered = df.dropna(how="all", subset=sat_cols, axis=0)
-    out = filtered.loc[:, CPGDatasetToCsv.cols_always_present + ['study_date']]
+    out = filtered.loc[:, XComDatasetProcess.cols_always_present + ['study_date']]
     grouped = filtered.loc[:, sat_cols].apply(pandas.to_numeric).groupby(lambda x: x.split("_")[0], axis=1)
     aggs = pandas.concat([grouped.agg(func).rename(columns=lambda x: x+"_"+func)
                           for func in ["mean", "median", "std"]], axis=1).round(2)
@@ -103,42 +64,40 @@ with DAG('sabrev3', default_args=default_args) as dag:
         "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]}
 
     operators_resource_ids = [
-        (CPGProcessorToCsv(task_id="SR_SAT", **xnat_args, processor=dicom_sr.to_frame, post_processor=ult_sr_sats,
-                           iter_files_kwargs={
-                               "experiment_selector":
-                                   lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'Philips Medical Systems'
-                                             and x['xnat:imagesessiondata/scanner/model'] != 'Achieva',
-                               "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]
-                           },),
+        (CPGProcessorToXCom(task_id="SR_ULT", **xnat_args, processor=dicom_sr.to_frame,
+                            iter_files_kwargs={
+                                "experiment_selector":
+                                    lambda x: x[
+                                                  'xnat:imagesessiondata/scanner/manufacturer'] == 'Philips Medical Systems'
+                                              and x['xnat:imagesessiondata/scanner/model'] != 'Achieva',
+                                "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]
+                            }),
+         [({"task_id": "SR_SAT", "post_processor": ult_sr_sats}, '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2')]),
+        (CPGProcessorToXCom(task_id="SR_DEXA", **xnat_args, processor=dicom_sr.to_frame,
+                            iter_files_kwargs=dexa_selector_kwargs),
+         [({"task_id": "SR_DEXA_HIP", "row_filter": lambda row: 'Hip' in str(row['Analysis Type'])},
+           '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
+          ({"task_id": "SR_DEXA_SPINE", "row_filter": lambda row: 'Spine' in str(row['Analysis Type'])},
+           '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
+          ({"task_id": "SR_DEXA_BODY", "row_filter": lambda row: 'Whole Body' in str(row['Analysis Type'])},
+           '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2')]),
+        (CPGProcessorToXCom(task_id="F_ANTHROPOMETR", **oc_args, dataset_args=['F_ANTHROPOMETR']),
          '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
-        (CPGProcessorToCsv(task_id="SR_DEXA_HIP", **xnat_args, processor=dicom_sr.to_frame,
-                           iter_files_kwargs=dexa_selector_kwargs,
-                           row_filter=lambda row: 'Hip' in str(row['Analysis Type'])),
+        (CPGProcessorToXCom(task_id="F_FALLSRISKSAB", **oc_args, dataset_args=['F_FALLSRISKSAB']),
          '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
-        (CPGProcessorToCsv(task_id="SR_DEXA_SPINE", **xnat_args, processor=dicom_sr.to_frame,
-                           iter_files_kwargs=dexa_selector_kwargs,
-                           row_filter=lambda row: 'Spine' in str(row['Analysis Type'])),
-         '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
-        (CPGProcessorToCsv(task_id="SR_DEXA_BODY", **xnat_args, processor=dicom_sr.to_frame,
-                           iter_files_kwargs=dexa_selector_kwargs,
-                           row_filter=lambda row: 'Whole Body' in str(row['Analysis Type'])),
-         '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
-        (CPGDatasetToCsv(task_id="F_ANTHROPOMETR", **oc_args, dataset_args=['F_ANTHROPOMETR']),
-         '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
-        (CPGDatasetToCsv(task_id="F_FALLSRISKSAB", **oc_args, dataset_args=['F_FALLSRISKSAB']),
-         '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
-        (CPGProcessorToCsv(task_id="I_ANTHR_BIOIMPEDANCEFILE", **oc_args,
-                           iter_files_args=['I_ANTHR_BIOIMPEDANCEFILE'], processor=tanita_bioimpedance.to_frame,
-                           filter_cols=['BMI_WEIGHT', 'TABC_FATP', 'TABC_FATM', 'TABC_FFM', 'TABC_TBW', 'TABC_PMM',
-                                        'TABC_IMP', 'TABC_BMI', 'TABC_VFATL', 'TABC_RLFATP',
-                                        'TABC_RLFATM', 'TABC_RLFFM', 'TABC_RLPMM', 'TABC_RLIMP', 'TABC_LLFATP',
-                                        'TABC_LLFATM', 'TABC_LLFFM', 'TABC_LLPMM', 'TABC_LLIMP', 'TABC_RAFATP',
-                                        'TABC_RAFATM', 'TABC_RAFFM', 'TABC_RAPMM', 'TABC_RAIMP', 'TABC_LAFATP',
-                                        'TABC_LAFATM', 'TABC_LAFFM', 'TABC_LAPMM', 'TABC_LAIMP', 'TABC_TRFATP',
-                                        'TABC_TRFATM', 'TABC_TRFFM', 'TABC_TRPMM']),
-         '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
-        (CPGProcessorToCsv(task_id="I_LIVER_ELASTOGRAPHYFILE", **oc_args, iter_files_args=['I_LIVER_ELASTOGRAPHYFILE'],
-                           processor=epiq7_liverelast.to_frame),
+        (CPGProcessorToXCom(task_id="I_ANTHR_BIOIMPEDANCEFILE_UNFILTERED", **oc_args,
+                            iter_files_args=['I_ANTHR_BIOIMPEDANCEFILE'], processor=tanita_bioimpedance.to_frame),
+         [({"task_id": "I_ANTHR_BIOIMPEDANCEFILE",
+            "filter_cols": ['BMI_WEIGHT', 'TABC_FATP', 'TABC_FATM', 'TABC_FFM', 'TABC_TBW', 'TABC_PMM',
+                            'TABC_IMP', 'TABC_BMI', 'TABC_VFATL', 'TABC_RLFATP',
+                            'TABC_RLFATM', 'TABC_RLFFM', 'TABC_RLPMM', 'TABC_RLIMP', 'TABC_LLFATP',
+                            'TABC_LLFATM', 'TABC_LLFFM', 'TABC_LLPMM', 'TABC_LLIMP', 'TABC_RAFATP',
+                            'TABC_RAFATM', 'TABC_RAFFM', 'TABC_RAPMM', 'TABC_RAIMP', 'TABC_LAFATP',
+                            'TABC_LAFATM', 'TABC_LAFFM', 'TABC_LAPMM', 'TABC_LAIMP', 'TABC_TRFATP',
+                            'TABC_TRFATM', 'TABC_TRFFM', 'TABC_TRPMM']},
+           '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2')]),
+        (CPGProcessorToXCom(task_id="I_LIVER_ELASTOGRAPHYFILE", **oc_args, iter_files_args=['I_LIVER_ELASTOGRAPHYFILE'],
+                            processor=epiq7_liverelast.to_frame),
          '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
     ]
 
@@ -153,19 +112,29 @@ with DAG('sabrev3', default_args=default_args) as dag:
 
     previous = unzip
 
-    for operator, ckan_resource_id in operators_resource_ids:
+    for operator, outputs in operators_resource_ids:
 
         operator << unzip
 
-        check_file = ShortCircuitOperator(task_id=operator.task_id+"_file_check", python_callable=check_file_altered,
-                                          op_args=[operator.csv_path], provide_context=True,)
+        if isinstance(outputs, str):
+            push_list = [(operator, outputs)]
+        else:
+            push_list = [CPGProcessorToXCom(souce_task_id=operator.task_id,**processor_args)
+                for processor_args, package_id
+                         in outputs
+            ]
+            [op << operator for op, _ in push_list]
 
-        check_file << operator
+        for branch_operator, package_id in push_list:
 
-        push_dataset = PythonOperator(
-            python_callable=push_to_ckan, op_args=[operator.csv_path, ckan_resource_id],
-            task_id=operator.task_id + "_push_to_ckan",
-        )
+            check_file = ShortCircuitOperator(task_id=branch_operator.task_id+"_freshness_check",
+                                              python_callable=dataset_freshness_check,
+                                              op_args=[branch_operator.task_id], provide_context=True,)
+            check_file << branch_operator
 
-        push_dataset << check_file
+            push_dataset = XComDatasetToCkan(task_id=branch_operator.task_id+"_ckan_push",
+                                             source_task_id=branch_operator.task_id, ckan_connection_id='ckan',
+                                             ckan_package_id=package_id
+            )
+            push_dataset << check_file
 
