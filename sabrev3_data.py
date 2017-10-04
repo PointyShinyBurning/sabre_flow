@@ -120,7 +120,7 @@ with DAG('sabrev3', default_args=default_args) as dag:
         if isinstance(outputs, str):
             push_list = [(operator, outputs)]
         else:
-            push_list = [(XComDatasetProcess(souce_task_id=operator.task_id,**processor_args), package_id)
+            push_list = [(XComDatasetProcess(source_task_id=operator.task_id, **processor_args), package_id)
                 for processor_args, package_id
                          in outputs
             ]
@@ -135,7 +135,6 @@ with DAG('sabrev3', default_args=default_args) as dag:
 
             push_dataset = XComDatasetToCkan(task_id=branch_operator.task_id+"_ckan_push",
                                              source_task_id=branch_operator.task_id, ckan_connection_id='ckan',
-                                             ckan_package_id=package_id
-            )
+                                             ckan_package_id=package_id)
             push_dataset << check_file
 
