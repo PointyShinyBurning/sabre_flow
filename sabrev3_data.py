@@ -26,7 +26,7 @@ def unzip_first_file(zip_path, destination):
 
 
 def dataset_freshness_check(source_task_id, **context):
-    return context['ti'].xcom_pull(source_task_id, include_prior_dates=True)[cpgintegrate.TIMESTAMP_FIELD_NAME].max()\
+    return context['ti'].xcom_pull(source_task_id)[cpgintegrate.TIMESTAMP_FIELD_NAME].max()\
            > context['execution_date'].timestamp()
 
 
