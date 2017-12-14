@@ -1,4 +1,4 @@
 apache-airflow>=1.8.1
-git+https://github.com/pointyshinyburning/cpgintegrate@0.1.1#egg=cpgintegrate
+git+https://github.com/pointyshinyburning/cpgintegrate@releases/0.1.1#egg=cpgintegrate
 requests>=2.10
 pandas>=0.18.1
