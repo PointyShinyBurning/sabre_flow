@@ -59,7 +59,7 @@ with DAG('sabrev3', default_args=default_args) as dag:
                "connector_kwargs": {"xml_path": oc_xml_path}, "pool": "OpenClinica", }
     xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args": ['SABREv3'],
                  "pool": "xnat"}
-    teleform_args = {"connector_class": Teleform, "connection_id": 'teleform', 'connector_args': ['https://cmp.slms.ucl.ac.uk/gitblit/raw/teleform.git/master/']}
+    teleform_args = {"connector_class": Teleform, "connection_id": 'teleform', 'connector_args': ['https://cmp.slms.ucl.ac.uk/gitblit/raw/teleform.git/master']}
 
     dexa_selector_kwargs = {
         "experiment_selector": lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
