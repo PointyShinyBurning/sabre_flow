@@ -4,7 +4,7 @@ from airflow.hooks.base_hook import BaseHook
 from airflow.operators.python_operator import PythonOperator, ShortCircuitOperator
 from datetime import datetime
 import shutil
-from cpgintegrate.connectors import OpenClinica, XNAT
+from cpgintegrate.connectors import OpenClinica, XNAT, Teleform
 from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr
 import requests
 import logging
@@ -59,6 +59,7 @@ with DAG('sabrev3', default_args=default_args) as dag:
                "connector_kwargs": {"xml_path": oc_xml_path}, "pool": "OpenClinica", }
     xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args": ['SABREv3'],
                  "pool": "xnat"}
+    teleform_args = {"connector_class": Teleform, "connection_id": 'teleform', 'connector_args': ['https://cmp.slms.ucl.ac.uk/gitblit/raw/teleform.git/master/']}
 
     dexa_selector_kwargs = {
         "experiment_selector": lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
@@ -100,6 +101,8 @@ with DAG('sabrev3', default_args=default_args) as dag:
         (CPGProcessorToXCom(task_id="I_LIVER_ELASTOGRAPHYFILE", **oc_args, iter_files_args=['I_LIVER_ELASTOGRAPHYFILE'],
                             processor=epiq7_liverelast.to_frame),
          '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
+        (CPGDatasetToXCom(task_id="QUEST_1A", **teleform_args, dataset_args=['quest_1a']),
+         'c104c2c5-0d8b-4cb5-a1f2-084d681dc3fe'),
     ]
 
     unzip = PythonOperator(
