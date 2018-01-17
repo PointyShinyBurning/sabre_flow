@@ -103,6 +103,10 @@ with DAG('sabrev3', default_args=default_args) as dag:
          '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
         (CPGDatasetToXCom(task_id="QUEST_1A", **teleform_args, dataset_args=['quest_1a']),
          'c104c2c5-0d8b-4cb5-a1f2-084d681dc3fe'),
+        (CPGDatasetToXCom(task_id="QUEST_1B", **teleform_args, dataset_args=['quest_1b']),
+         'c104c2c5-0d8b-4cb5-a1f2-084d681dc3fe'),
+        (CPGDatasetToXCom(task_id="QUEST_2", **teleform_args, dataset_args=['quest_2']),
+         'c104c2c5-0d8b-4cb5-a1f2-084d681dc3fe'),
     ]
 
     unzip = PythonOperator(
