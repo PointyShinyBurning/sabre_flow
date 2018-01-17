@@ -122,7 +122,8 @@ with DAG('sabrev3', default_args=default_args) as dag:
 
     for operator, outputs in operators_resource_ids:
 
-        operator << unzip
+        if operator.connector_class == OpenClinica:
+            operator << unzip
 
         if isinstance(outputs, str):
             push_list = [(operator, outputs)]
