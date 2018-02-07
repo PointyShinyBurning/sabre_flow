@@ -1,33 +1,11 @@
 from airflow import DAG
-import zipfile
-from airflow.hooks.base_hook import BaseHook
 from airflow.operators.python_operator import PythonOperator, ShortCircuitOperator
 from datetime import datetime
-import shutil
 from cpgintegrate.connectors import OpenClinica, XNAT, Teleform
 from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr
-import requests
-import logging
 from airflow.operators.cpg_plugin import CPGDatasetToXCom, CPGProcessorToXCom, XComDatasetProcess, XComDatasetToCkan
-import os
 import re
 import pandas
-import cpgintegrate
-
-
-def unzip_first_file(zip_path, destination):
-    zip_file = zipfile.ZipFile(zip_path)
-    destination_file = open(destination, "wb")
-    shutil.copyfileobj(
-        zip_file.open(zip_file.namelist()[0], "r"),
-        destination_file
-    )
-    destination_file.close()
-
-
-def dataset_freshness_check(source_task_id, **context):
-    return context['ti'].xcom_pull(source_task_id)[cpgintegrate.TIMESTAMP_FIELD_NAME].max()\
-           > context['execution_date'].timestamp()
 
 
 def ult_sr_sats(df):
@@ -118,13 +96,9 @@ with DAG('sabrev3', default_args=default_args) as dag:
 
         for branch_operator, package_id in push_list:
 
-            check_file = ShortCircuitOperator(task_id=branch_operator.task_id+"_freshness_check",
-                                              python_callable=dataset_freshness_check,
-                                              op_args=[branch_operator.task_id], provide_context=True,)
-            check_file << branch_operator
 
             push_dataset = XComDatasetToCkan(task_id=branch_operator.task_id+"_ckan_push",
                                              source_task_id=branch_operator.task_id, ckan_connection_id='ckan',
                                              ckan_package_id=package_id)
-            push_dataset << check_file
+            push_dataset << branch_operator
 
