@@ -24,7 +24,7 @@ default_args = {
     'email': ['d.key@ucl.ac.uk'],
     'email_on_failure': True,
     'email_on_retry': True,
-    'start_date': datetime(2017, 9, 6, 0, 1),
+    'start_date': datetime(2017, 9, 6),
     'schedule_interval': '1 0 * * *'
 }
 
