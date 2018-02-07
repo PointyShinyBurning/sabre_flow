@@ -26,7 +26,7 @@ default_args = {
     'email_on_retry': True,
 }
 
-with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='@daily', default_args=default_args) as dag:
+with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * *', default_args=default_args) as dag:
 
     oc_args = {"connector_class": OpenClinica, "connection_id": 'openclinica', "connector_args": ['S_SABREV3_4350'],
                "connector_kwargs": {"dataset_id": 2}, "pool": "OpenClinica", }
