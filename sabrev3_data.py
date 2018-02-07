@@ -40,8 +40,6 @@ def ult_sr_sats(df):
     return pandas.concat([aggs, out], axis=1)
 
 
-csv_dir = BaseHook.get_connection('temp_file_dir').extra_dejson.get("path")
-
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -54,9 +52,8 @@ default_args = {
 
 with DAG('sabrev3', default_args=default_args) as dag:
 
-    oc_xml_path = csv_dir + "openclinica.xml"
     oc_args = {"connector_class": OpenClinica, "connection_id": 'openclinica', "connector_args": ['S_SABREV3_4350'],
-               "connector_kwargs": {"xml_path": oc_xml_path}, "pool": "OpenClinica", }
+               "connector_kwargs": {"dataset_id": 2}, "pool": "OpenClinica", }
     xnat_args = {"connector_class": XNAT, "connection_id": 'xnat', "connector_args": ['SABREv3'],
                  "pool": "xnat"}
     teleform_args = {"connector_class": Teleform, "connection_id": 'teleform', 'connector_args': ['https://cmp.slms.ucl.ac.uk/gitblit/raw/teleform.git/master']}
@@ -109,21 +106,7 @@ with DAG('sabrev3', default_args=default_args) as dag:
          'c104c2c5-0d8b-4cb5-a1f2-084d681dc3fe'),
     ]
 
-    unzip = PythonOperator(
-        python_callable=unzip_first_file,
-        op_args=[
-            BaseHook.get_connection('openclinica_export_zip').extra_dejson.get("path"),
-            oc_xml_path
-        ],
-        task_id='unzip',
-    )
-
-    previous = unzip
-
     for operator, outputs in operators_resource_ids:
-
-        if operator.connector_class == OpenClinica:
-            operator << unzip
 
         if isinstance(outputs, str):
             push_list = [(operator, outputs)]
