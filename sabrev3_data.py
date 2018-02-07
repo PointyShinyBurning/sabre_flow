@@ -47,7 +47,6 @@ default_args = {
     'email_on_failure': True,
     'email_on_retry': True,
     'start_date': datetime(2017, 9, 6),
-    'csv_dir': csv_dir,
 }
 
 with DAG('sabrev3', default_args=default_args) as dag:
