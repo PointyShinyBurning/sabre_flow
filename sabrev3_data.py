@@ -24,7 +24,7 @@ default_args = {
     'email': ['d.key@ucl.ac.uk'],
     'email_on_failure': True,
     'email_on_retry': True,
-    'start_date': datetime(2017, 9, 6),
+    'start_date': datetime(2017, 9, 6, 0, 1),
 }
 
 with DAG('sabrev3', default_args=default_args) as dag:
@@ -101,4 +101,3 @@ with DAG('sabrev3', default_args=default_args) as dag:
                                              source_task_id=branch_operator.task_id, ckan_connection_id='ckan',
                                              ckan_package_id=package_id)
             push_dataset << branch_operator
-
