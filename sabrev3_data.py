@@ -25,6 +25,7 @@ default_args = {
     'email_on_failure': True,
     'email_on_retry': True,
     'start_date': datetime(2017, 9, 6, 0, 1),
+    'schedule_interval': '1 0 * * *'
 }
 
 with DAG('sabrev3', default_args=default_args) as dag:
