@@ -1,3 +1,3 @@
-git+git://github.com/apache/incubator-airflow@1.9.0#egg=apache-airflow
-git+git://github.com/pointyshinyburning/cpgintegrate@0.2.9#egg=cpgintegrate
+git://github.com/apache/incubator-airflow@1.9.0#egg=apache-airflow
+git://github.com/pointyshinyburning/cpgintegrate@0.2.9#egg=cpgintegrate
 pandas
