@@ -4,18 +4,7 @@ from datetime import datetime
 from cpgintegrate.connectors import OpenClinica, XNAT, Teleform
 from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr, omron_bp
 from airflow.operators.cpg_plugin import CPGDatasetToXCom, CPGProcessorToXCom, XComDatasetProcess, XComDatasetToCkan
-import re
-import pandas
-
-
-def ult_sr_sats(df):
-    sat_cols = [col for col in df.columns if re.search("^.SAT (Left|Right)_Distance_?\d?$", col)]
-    filtered = df.dropna(how="all", subset=sat_cols, axis=0)
-    out = filtered.loc[:, XComDatasetProcess.cols_always_present + ['study_date']]
-    grouped = filtered.loc[:, sat_cols].apply(pandas.to_numeric).groupby(lambda x: x.split("_")[0], axis=1)
-    aggs = pandas.concat([grouped.agg(func).rename(columns=lambda x: x+"_"+func)
-                          for func in ["mean", "median", "std"]], axis=1).round(2)
-    return pandas.concat([aggs, out], axis=1)
+from tools import ult_sr_sats, omron_bp_combine
 
 
 default_args = {
@@ -35,6 +24,8 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     dexa_selector_kwargs = {
         "experiment_selector": lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
         "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]}
+
+    bp_combine = XComDatasetProcess(task_id='I_CLINI_CLINICBPFILE', post_processor=omron_bp_combine())
 
     operators_resource_ids = [
         (CPGProcessorToXCom(task_id="SR_ULT", **xnat_args, processor=dicom_sr.to_frame,
@@ -80,12 +71,13 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
          'c104c2c5-0d8b-4cb5-a1f2-084d681dc3fe'),
         (CPGDatasetToXCom(task_id="F_EXERCISESABR", **oc_args, dataset_args=['F_EXERCISESABR']),
          'exercise'),
+        (bp_combine, 'vascular')
     ]
 
-    CPGProcessorToXCom(task_id='I_CLINI_CLINICBPFILE_LEFT', **oc_args, iter_files_args=['I_CLINI_CLINICBPFILE_LEFT'],
-                       processor=omron_bp.to_frame)
-    CPGProcessorToXCom(task_id='I_CLINI_CLINICBPFILE_RIGHT', **oc_args, iter_files_args=['I_CLINI_CLINICBPFILE_RIGHT'],
-                       processor=omron_bp.to_frame)
+    for field_name in ['I_CLINI_CLINICBPFILE_LEFT', 'I_CLINI_CLINICBPFILE_RIGHT']:
+        bp_combine << CPGProcessorToXCom(task_id=field_name, **oc_args,
+                                         iter_files_args=[field_name], processor=omron_bp.to_frame)
+
 
     for operator, outputs in operators_resource_ids:
 
