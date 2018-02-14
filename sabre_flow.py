@@ -1,6 +1,5 @@
 import pandas
 from airflow import DAG
-from airflow.operators.python_operator import PythonOperator, ShortCircuitOperator
 from datetime import datetime
 from cpgintegrate.connectors import OpenClinica, XNAT, Teleform
 from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr, omron_bp
