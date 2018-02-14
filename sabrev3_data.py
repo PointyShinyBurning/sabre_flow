@@ -31,8 +31,9 @@ def omron_bp_combine(bp_left, bp_right):
     select_right = bps_different | bps_different.index.isin(bp_right.index.difference(bp_left.index))
 
     # Pulse from left arm if available
-    return (bp_right[select_right].append(bp_left[~select_right])
-            .assign(Pulse=bp_left['Pulse']))
+    return (bp_right[select_right]
+            .append(bp_left[~select_right])
+            .assign(Pulse=bp_left.Pulse.combine_first(bp_right.Pulse)))
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 default_args = {
