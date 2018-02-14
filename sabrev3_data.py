@@ -1,11 +1,37 @@
+import pandas
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator, ShortCircuitOperator
 from datetime import datetime
 from cpgintegrate.connectors import OpenClinica, XNAT, Teleform
 from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr, omron_bp
 from airflow.operators.cpg_plugin import CPGDatasetToXCom, CPGProcessorToXCom, XComDatasetProcess, XComDatasetToCkan
-from .tools import ult_sr_sats, omron_bp_combine
+import re
 
+# ~~~~~~~~~~ Data processing functions ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+def ult_sr_sats(df):
+    sat_cols = [col for col in df.columns if re.search("^.SAT (Left|Right)_Distance_?\d?$", col)]
+    filtered = df.dropna(how="all", subset=sat_cols, axis=0)
+    out = filtered.loc[:, XComDatasetProcess.cols_always_present + ['study_date']]
+    grouped = filtered.loc[:, sat_cols].apply(pandas.to_numeric).groupby(lambda x: x.split("_")[0], axis=1)
+    aggs = pandas.concat([grouped.agg(func).rename(columns=lambda x: x+"_"+func)
+                          for func in ["mean", "median", "std"]], axis=1).round(2)
+    return pandas.concat([aggs, out], axis=1)
+
+
+def omron_bp_combine(bp_left, bp_right):
+    bp_left['Arm'] = 'Left'
+    bp_right['Arm'] = 'Right'
+
+    # Left arm BP unless >10 difference in either measurement, in which case right
+    select = ((bp_right['SYS'] - bp_left['SYS']) > 10) | \
+             ((bp_right['DIA'] - bp_left['DIA']) > 10)
+
+    # Left arm pulses
+    return (bp_right[select].append(bp_left[not select])
+            .assign(Pulse=bp_left['Pulse']))
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 default_args = {
     'owner': 'airflow',
@@ -95,3 +121,5 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
             push_dataset = XComDatasetToCkan(task_id=branch_operator.task_id+"_ckan_push",
                                              ckan_connection_id='ckan', ckan_package_id=package_id)
             push_dataset << branch_operator
+
+
