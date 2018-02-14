@@ -51,7 +51,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         "experiment_selector": lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
         "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]}
 
-    bp_combine = XComDatasetProcess(task_id='I_CLINI_CLINICBPFILE', post_processor=omron_bp_combine())
+    bp_combine = XComDatasetProcess(task_id='I_CLINI_CLINICBPFILE', post_processor=omron_bp_combine)
 
     operators_resource_ids = [
         (CPGProcessorToXCom(task_id="SR_ULT", **xnat_args, processor=dicom_sr.to_frame,
