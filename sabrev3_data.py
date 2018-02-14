@@ -84,6 +84,8 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
 
     CPGProcessorToXCom(task_id='I_CLINI_CLINICBPFILE_LEFT', **oc_args, iter_files_args=['I_CLINI_CLINICBPFILE_LEFT'],
                        processor=omron_bp.to_frame)
+    CPGProcessorToXCom(task_id='I_CLINI_CLINICBPFILE_RIGHT', **oc_args, iter_files_args=['I_CLINI_CLINICBPFILE_RIGHT'],
+                       processor=omron_bp.to_frame)
 
     for operator, outputs in operators_resource_ids:
 
