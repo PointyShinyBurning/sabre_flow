@@ -30,8 +30,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
 
     oc_args = {"connector_class": OpenClinica, "connection_id": 'sabrev3_openclinica', "pool": "openclinica", }
     xnat_args = {"connector_class": XNAT, "connection_id": 'sabrev3_xnat', "pool": "xnat"}
-    teleform_args = {"connector_class": Teleform, "connection_id": 'teleform',
-                     'connector_args': ['https://cmp.slms.ucl.ac.uk/gitblit/raw/teleform.git/master']}
+    teleform_args = {"connector_class": Teleform, "connection_id": 'teleform',}
 
     dexa_selector_kwargs = {
         "experiment_selector": lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
@@ -98,7 +97,6 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
             [op << operator for op, _ in push_list]
 
         for branch_operator, package_id in push_list:
-
 
             push_dataset = XComDatasetToCkan(task_id=branch_operator.task_id+"_ckan_push",
                                              ckan_connection_id='ckan', ckan_package_id=package_id)
