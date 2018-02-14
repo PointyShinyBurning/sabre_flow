@@ -29,7 +29,7 @@ def omron_bp_combine(bp_left, bp_right):
              ((bp_right['DIA'] - bp_left['DIA']) > 10)
 
     # Left arm pulses
-    return (bp_right[select].append(bp_left[not select])
+    return (bp_right[select].append(bp_left[~select])
             .assign(Pulse=bp_left['Pulse']))
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
