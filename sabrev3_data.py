@@ -4,7 +4,7 @@ from datetime import datetime
 from cpgintegrate.connectors import OpenClinica, XNAT, Teleform
 from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr, omron_bp
 from airflow.operators.cpg_plugin import CPGDatasetToXCom, CPGProcessorToXCom, XComDatasetProcess, XComDatasetToCkan
-from tools import ult_sr_sats, omron_bp_combine
+from .tools import ult_sr_sats, omron_bp_combine
 
 
 default_args = {
