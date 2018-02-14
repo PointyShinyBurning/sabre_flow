@@ -2,7 +2,7 @@ from airflow import DAG
 from airflow.operators.python_operator import PythonOperator, ShortCircuitOperator
 from datetime import datetime
 from cpgintegrate.connectors import OpenClinica, XNAT, Teleform
-from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr
+from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr, omron_bp
 from airflow.operators.cpg_plugin import CPGDatasetToXCom, CPGProcessorToXCom, XComDatasetProcess, XComDatasetToCkan
 import re
 import pandas
@@ -82,6 +82,9 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         (CPGDatasetToXCom(task_id="F_EXERCISESABR", **oc_args, dataset_args=['F_EXERCISESABR']),
          'exercise'),
     ]
+
+    CPGProcessorToXCom(task_id='I_CLINI_CLINICBPFILE_LEFT', **oc_args, iter_files_args=['I_CLINI_CLINICBPFILE_LEFT'],
+                       processor=omron_bp.to_frame)
 
     for operator, outputs in operators_resource_ids:
 
