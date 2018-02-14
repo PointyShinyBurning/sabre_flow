@@ -46,9 +46,9 @@ default_args = {
 
 with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * *', default_args=default_args) as dag:
 
-    oc_args = {"connector_class": OpenClinica, "connection_id": 'sabrev3_openclinica', "pool": "openclinica", }
+    oc_args = {"connector_class": OpenClinica, "connection_id": 'sabrev3_openclinica', "pool": "openclinica"}
     xnat_args = {"connector_class": XNAT, "connection_id": 'sabrev3_xnat', "pool": "xnat"}
-    teleform_args = {"connector_class": Teleform, "connection_id": 'teleform',}
+    teleform_args = {"connector_class": Teleform, "connection_id": 'teleform'}
 
     dexa_selector_kwargs = {
         "experiment_selector": lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
