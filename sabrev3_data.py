@@ -21,15 +21,17 @@ def ult_sr_sats(df):
 
 
 def omron_bp_combine(bp_left, bp_right):
-    bp_left['Arm'] = 'Left'
-    bp_right['Arm'] = 'Right'
+    bp_left['BP Arm'] = 'Left'
+    bp_right['BP Arm'] = 'Right'
 
-    # Left arm BP unless >10 difference in either measurement, in which case right
-    select = ((bp_right['SYS'] - bp_left['SYS']) > 10) | \
-             ((bp_right['DIA'] - bp_left['DIA']) > 10)
+    # Use right arm BP if >10 difference in either measurement or left is missing
+    bps_different = ((bp_right['SYS'] - bp_left['SYS']) > 10) |\
+                    ((bp_right['DIA'] - bp_left['DIA']) > 10)
 
-    # Left arm pulses
-    return (bp_right[select].append(bp_left[~select])
+    select_right = bps_different | bps_different.index.isin(bp_right.index.difference(bp_left.index))
+
+    # Pulse from left arm if available
+    return (bp_right[select_right].append(bp_left[~select_right])
             .assign(Pulse=bp_left['Pulse']))
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
