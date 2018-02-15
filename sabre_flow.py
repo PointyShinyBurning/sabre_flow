@@ -2,7 +2,7 @@ import pandas
 from airflow import DAG
 from datetime import datetime
 from cpgintegrate.connectors import OpenClinica, XNAT, Teleform
-from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr, omron_bp
+from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr, omron_bp, mvo2_exercise
 from airflow.operators.cpg_plugin import CPGDatasetToXCom, CPGProcessorToXCom, XComDatasetProcess, XComDatasetToCkan
 import re
 
@@ -100,13 +100,15 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
          'c104c2c5-0d8b-4cb5-a1f2-084d681dc3fe'),
         (CPGDatasetToXCom(task_id="F_EXERCISESABR", **oc_args, dataset_args=['F_EXERCISESABR']),
          'exercise'),
+        (CPGProcessorToXCom(task_id='I_EXERC_MVO2_XLSX', **oc_args, iter_files_args=['I_EXERC_MVO2_XLSX'],
+                            processor=mvo2_exercise.to_frame),
+         'exercise'),
         (bp_combine, 'vascular')
     ]
 
     for field_name in ['I_CLINI_CLINICBPFILE_LEFT', 'I_CLINI_CLINICBPFILE_RIGHT']:
         bp_combine << CPGProcessorToXCom(task_id=field_name, **oc_args,
                                          iter_files_args=[field_name], processor=omron_bp.to_frame)
-
 
     for operator, outputs in operators_resource_ids:
 
@@ -124,5 +126,3 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
             push_dataset = XComDatasetToCkan(task_id=branch_operator.task_id+"_ckan_push",
                                              ckan_connection_id='ckan', ckan_package_id=package_id)
             push_dataset << branch_operator
-
-
