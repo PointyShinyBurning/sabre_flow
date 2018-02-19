@@ -32,7 +32,7 @@ def omron_bp_combine(bp_left, bp_right):
     # Pulse from left arm if available
     return (bp_right[select_right]
             .append(bp_left[~select_right])
-            .assign(Pulse=bp_left.Pulse.combine_first(bp_right.Pulse)))
+            .assign(Pulse=bp_left.Pulse.combine_first(bp_right.Pulse).round().astype(int)))
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
