@@ -57,6 +57,9 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]}
 
     bp_combine = XComDatasetProcess(task_id='I_CLINI_CLINICBPFILE', post_processor=omron_bp_combine)
+    for field_name in ['I_CLINI_CLINICBPFILE_LEFT', 'I_CLINI_CLINICBPFILE_RIGHT']:
+        bp_combine << CPGProcessorToXCom(task_id=field_name, **oc_args,
+                                         iter_files_args=[field_name], processor=omron_bp.to_frame)
     sr_dexa = CPGProcessorToXCom(task_id="SR_DEXA", **xnat_args, processor=dicom_sr.to_frame,
                                  iter_files_kwargs=dexa_selector_kwargs)
 
@@ -88,7 +91,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
          ['I_COGNI_SATISFIED', 'I_COGNI_DROPPEDINTERESTS', 'I_COGNI_LIFEEMPTY', 'I_COGNI_AFRAIDBADTHINGS',
           'I_COGNI_HAPPY', 'I_COGNI_HELPLESS', 'I_COGNI_MEMORYPROBLEMS', 'I_COGNI_FULLOFENERGY',
           'I_COGNI_HOPELESSSITUATION', 'I_COGNI_MOSTBETTEROFF']),
-         '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
+         'cognitive'),
         (CPGProcessorToXCom(task_id="I_ANTHR_BIOIMPEDANCEFILE_UNFILTERED", **oc_args,
                             iter_files_args=['I_ANTHR_BIOIMPEDANCEFILE'], processor=tanita_bioimpedance.to_frame) >>
          XComDatasetProcess(task_id="I_ANTHR_BIOIMPEDANCEFILE",
@@ -116,10 +119,6 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
          'exercise'),
         (bp_combine, 'vascular'),
     ]
-
-    for field_name in ['I_CLINI_CLINICBPFILE_LEFT', 'I_CLINI_CLINICBPFILE_RIGHT']:
-        bp_combine << CPGProcessorToXCom(task_id=field_name, **oc_args,
-                                         iter_files_args=[field_name], processor=omron_bp.to_frame)
 
     for operator, resource_id in operators_resource_ids:
         operator >> XComDatasetToCkan(task_id=operator.task_id + "_ckan_push",
