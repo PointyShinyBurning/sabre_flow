@@ -70,31 +70,35 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                                 "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]
                             }) >> XComDatasetProcess(task_id='SR_SAT', post_processor=ult_sr_sats),
          '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
-        (sr_dexa
-         >> XComDatasetProcess(task_id='SR_DEXA_HIP', row_filter=lambda row: 'Hip' in str(row['Analysis Type'])),
+        (sr_dexa >>
+         XComDatasetProcess(task_id='SR_DEXA_HIP', row_filter=lambda row: 'Hip' in str(row['Analysis Type'])),
          '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
-        (sr_dexa
-         >> XComDatasetProcess(task_id="SR_DEXA_SPINE", row_filter=lambda row: 'Spine' in str(row['Analysis Type'])),
+        (sr_dexa >>
+         XComDatasetProcess(task_id="SR_DEXA_SPINE", row_filter=lambda row: 'Spine' in str(row['Analysis Type'])),
          '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
-        (sr_dexa
-         >> XComDatasetProcess(task_id="SR_DEXA_BODY", row_filter=lambda row: 'Whole Body' in str(row['Analysis Type'])),
+        (sr_dexa >>
+         XComDatasetProcess(task_id="SR_DEXA_BODY", row_filter=lambda row: 'Whole Body' in str(row['Analysis Type'])),
          '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
         (CPGDatasetToXCom(task_id="F_ANTHROPOMETR", **oc_args, dataset_args=['F_ANTHROPOMETR']),
          '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
         (CPGDatasetToXCom(task_id="F_FALLSRISKSAB", **oc_args, dataset_args=['F_FALLSRISKSAB']),
          '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
-        (CPGDatasetToXCom(task_id="F_F_COGNITIVEQUE", **oc_args, dataset_args=['F_COGNITIVEQUE']),
+        (CPGDatasetToXCom(task_id="F_COGNITIVEQUE", **oc_args, dataset_args=['F_COGNITIVEQUE']) >>
+         XComDatasetProcess(task_id='F_COGNITIVEQUE_DEPRESSION', filter_cols=
+         ['I_COGNI_SATISFIED', 'I_COGNI_DROPPEDINTERESTS', 'I_COGNI_LIFEEMPTY', 'I_COGNI_AFRAIDBADTHINGS',
+          'I_COGNI_HAPPY', 'I_COGNI_HELPLESS', 'I_COGNI_MEMORYPROBLEMS', 'I_COGNI_FULLOFENERGY',
+          'I_COGNI_HOPELESSSITUATION', 'I_COGNI_MOSTBETTEROFF']),
          '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
         (CPGProcessorToXCom(task_id="I_ANTHR_BIOIMPEDANCEFILE_UNFILTERED", **oc_args,
-                            iter_files_args=['I_ANTHR_BIOIMPEDANCEFILE'], processor=tanita_bioimpedance.to_frame)
-         >> XComDatasetProcess(task_id="I_ANTHR_BIOIMPEDANCEFILE",
-                               filter_cols=['BMI_WEIGHT', 'TABC_FATP', 'TABC_FATM', 'TABC_FFM', 'TABC_TBW', 'TABC_PMM',
-                                            'TABC_IMP', 'TABC_BMI', 'TABC_VFATL', 'TABC_RLFATP',
-                                            'TABC_RLFATM', 'TABC_RLFFM', 'TABC_RLPMM', 'TABC_RLIMP', 'TABC_LLFATP',
-                                            'TABC_LLFATM', 'TABC_LLFFM', 'TABC_LLPMM', 'TABC_LLIMP', 'TABC_RAFATP',
-                                            'TABC_RAFATM', 'TABC_RAFFM', 'TABC_RAPMM', 'TABC_RAIMP', 'TABC_LAFATP',
-                                            'TABC_LAFATM', 'TABC_LAFFM', 'TABC_LAPMM', 'TABC_LAIMP', 'TABC_TRFATP',
-                                            'TABC_TRFATM', 'TABC_TRFFM', 'TABC_TRPMM'])
+                            iter_files_args=['I_ANTHR_BIOIMPEDANCEFILE'], processor=tanita_bioimpedance.to_frame) >>
+         XComDatasetProcess(task_id="I_ANTHR_BIOIMPEDANCEFILE",
+                            filter_cols=['BMI_WEIGHT', 'TABC_FATP', 'TABC_FATM', 'TABC_FFM', 'TABC_TBW', 'TABC_PMM',
+                                         'TABC_IMP', 'TABC_BMI', 'TABC_VFATL', 'TABC_RLFATP',
+                                         'TABC_RLFATM', 'TABC_RLFFM', 'TABC_RLPMM', 'TABC_RLIMP', 'TABC_LLFATP',
+                                         'TABC_LLFATM', 'TABC_LLFFM', 'TABC_LLPMM', 'TABC_LLIMP', 'TABC_RAFATP',
+                                         'TABC_RAFATM', 'TABC_RAFFM', 'TABC_RAPMM', 'TABC_RAIMP', 'TABC_LAFATP',
+                                         'TABC_LAFATM', 'TABC_LAFFM', 'TABC_LAPMM', 'TABC_LAIMP', 'TABC_TRFATP',
+                                         'TABC_TRFATM', 'TABC_TRFFM', 'TABC_TRPMM'])
          , '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
         (CPGProcessorToXCom(task_id="I_LIVER_ELASTOGRAPHYFILE", **oc_args, iter_files_args=['I_LIVER_ELASTOGRAPHYFILE'],
                             processor=epiq7_liverelast.to_frame),
@@ -118,6 +122,5 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                                          iter_files_args=[field_name], processor=omron_bp.to_frame)
 
     for operator, resource_id in operators_resource_ids:
-
-            operator >> XComDatasetToCkan(task_id=operator.task_id + "_ckan_push",
-                                             ckan_connection_id='ckan', ckan_package_id=resource_id)
+        operator >> XComDatasetToCkan(task_id=operator.task_id + "_ckan_push",
+                                      ckan_connection_id='ckan', ckan_package_id=resource_id)
