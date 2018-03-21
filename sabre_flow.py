@@ -88,9 +88,8 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
          '1c0e5f95-5c95-4d57-bfb1-7b5e815461f2'),
         (CPGDatasetToXCom(task_id="F_COGNITIVEQUE", **oc_args, dataset_args=['F_COGNITIVEQUE']) >>
          XComDatasetProcess(task_id='F_COGNITIVEQUE_DEPRESSION', filter_cols=
-         ['I_COGNI_SATISFIED', 'I_COGNI_DROPPEDINTERESTS', 'I_COGNI_LIFEEMPTY', 'I_COGNI_AFRAIDBADTHINGS',
-          'I_COGNI_HAPPY', 'I_COGNI_HELPLESS', 'I_COGNI_MEMORYPROBLEMS', 'I_COGNI_FULLOFENERGY',
-          'I_COGNI_HOPELESSSITUATION', 'I_COGNI_MOSTBETTEROFF']),
+         ['Satisfied', 'DroppedInterests', 'LifeEmpty', 'AfraidBadThings', 'Happy', 'Helpless', 'MemoryProblems',
+          'FullOfEnergy', 'HopelessSituation', 'MostBetterOff']),
          'cognitive'),
         (CPGProcessorToXCom(task_id="I_ANTHR_BIOIMPEDANCEFILE_UNFILTERED", **oc_args,
                             iter_files_args=['I_ANTHR_BIOIMPEDANCEFILE'], processor=tanita_bioimpedance.to_frame) >>
