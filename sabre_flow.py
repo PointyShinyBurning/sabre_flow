@@ -123,7 +123,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         (CPGProcessorToXCom(task_id='TANGO_Data', **oc_args, iter_files_args=['I_EXERC_TANGO'],
                             processor=lambda file:
                             pandas.read_csv(file, header=None, skiprows=1, names=tango_cols)
-                            if file.name.endswith(".csv")
+                            if file.name.lower().endswith(".csv")
                             else pandas.read_excel(file, header=None, skiprows=1, parse_cols=8, names=tango_cols)
                             ) >> tango_sequence, 'exercise'),
         (CPGProcessorToXCom(task_id='I_EXERC_MVO2_XLSX', **oc_args, iter_files_args=['I_EXERC_MVO2_XLSX'],
