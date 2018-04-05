@@ -36,6 +36,8 @@ def omron_bp_combine(bp_left, bp_right):
             .assign(Pulse=bp_left.Pulse.combine_first(bp_right.Pulse).round().astype(int)))
 
 
+def tango_measurement_num_assign(excercise_crf, tango_data):
+    return tango_data
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -62,6 +64,8 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                                          iter_files_args=[field_name], processor=omron_bp.to_frame)
     sr_dexa = CPGProcessorToXCom(task_id="SR_DEXA", **xnat_args, processor=dicom_sr.to_frame,
                                  iter_files_kwargs=dexa_selector_kwargs)
+    tango_sequence = XComDatasetProcess(task_id='TANGO', post_processor=tango_measurement_num_assign)
+    tango_cols = ['#', 'Date', 'Time', 'SYS', 'DIA', 'HR', 'ErrorCode', 'BpType','Comments']
 
     operators_resource_ids = [
         (CPGProcessorToXCom(task_id="SR_ULT", **xnat_args, processor=dicom_sr.to_frame,
@@ -111,8 +115,14 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
          'c104c2c5-0d8b-4cb5-a1f2-084d681dc3fe'),
         (CPGDatasetToXCom(task_id="QUEST_2", **teleform_args, dataset_args=['quest_2']),
          'c104c2c5-0d8b-4cb5-a1f2-084d681dc3fe'),
-        (CPGDatasetToXCom(task_id="F_EXERCISESABR", **oc_args, dataset_args=['F_EXERCISESABR']),
-         'exercise'),
+        tango_sequence << (CPGDatasetToXCom(task_id="F_EXERCISESABR", **oc_args, dataset_args=['F_EXERCISESABR']),
+                           'exercise'),
+        CPGProcessorToXCom(task_id='TANGO_Data', **oc_args, iter_files_args=['I_EXERC_TANGO'],
+                           processor=lambda file:
+                           pandas.read_csv(file, header=None, skiprows=1, names=tango_cols)
+                           if file.name.endswith(".csv")
+                           else pandas.read_excel(sBytes, header=None, skiprows=1, parse_cols=8, names=tango_cols)
+                           ) >> tango_sequence,
         (CPGProcessorToXCom(task_id='I_EXERC_MVO2_XLSX', **oc_args, iter_files_args=['I_EXERC_MVO2_XLSX'],
                             processor=mvo2_exercise.to_frame),
          'exercise'),
