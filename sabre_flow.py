@@ -83,15 +83,20 @@ def tango_measurement_num_assign(grips_crf, exercise_crf, tango_data):
             skip_errs = [True] * 4
         skip_errs += [False] * ex_measures
         meas_num = 0
-        for seqNum in range(0, len(skip_errs)):
-            if skip_errs[seqNum]:
-                while data.loc[meas_num].ErrorCode != 0:
-                    meas_num += 1
-            data.ix[meas_num, 'seqNum'] = int(seqNum + 1)
-            meas_num += 1
+        try:
+            for seqNum in range(0, len(skip_errs)):
+                if skip_errs[seqNum]:
+                    while data.loc[meas_num].ErrorCode != 0:
+                        meas_num += 1
+                data.ix[meas_num, 'seqNum'] = int(seqNum + 1)
+                meas_num += 1
 
-        if data[data.seqNum == data.seqNum.max()].iloc[0].ErrorCode != 0:
-            data.iloc[-1].seq_num = 14
+            if data[data.seqNum == data.seqNum.max()].iloc[0].ErrorCode != 0:
+                data.iloc[-1].seq_num = 14
+
+        except KeyError:
+            # Not enough measures
+            pass
 
         data = data[data.seqNum != 0]
 
