@@ -44,8 +44,6 @@ def tango_measurement_num_assign(grips_crf, exercise_crf, tango_data):
 
         subject_id = data.index.values[0][0]
 
-        data.reset_index(inplace=True)
-
         mins, secs = exercise_crf.loc[subject_id, ['StepperMins', 'StepperSecs']].astype(int).values
 
         ex_time = timedelta(minutes=int(mins), seconds=int(secs))
@@ -66,6 +64,9 @@ def tango_measurement_num_assign(grips_crf, exercise_crf, tango_data):
             grip_strength = grips_crf.loc[subject_id]
         except KeyError:
             grip_strength = None
+
+
+        data.reset_index(inplace=True)
         # Error codes to zero if blank
         data.loc[data.ErrorCode.isnull(), "ErrorCode"] = 0
 
