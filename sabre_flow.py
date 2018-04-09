@@ -61,7 +61,7 @@ def tango_measurement_num_assign(grips_crf, exercise_crf, tango_data):
 
         # Work out if they did grip test or not
         try:
-            grip_strength = grips_crf.loc[subject_id]
+            grip_strength = grips_crf.loc[subject_id, "GripStrengthMax_kpa"]
         except KeyError:
             grip_strength = None
 
