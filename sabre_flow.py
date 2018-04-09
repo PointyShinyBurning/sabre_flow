@@ -48,7 +48,7 @@ def tango_measurement_num_assign(grips_crf, exercise_crf, tango_data):
 
         mins, secs = exercise_crf.loc[subject_id, ['StepperMins', 'StepperSecs']].astype(int).values
 
-        ex_time = timedelta(minutes=mins, seconds=secs)
+        ex_time = timedelta(minutes=int(mins), seconds=int(secs))
 
         if ex_time > timedelta(minutes=5, seconds=20):
             ex_measures = 7
