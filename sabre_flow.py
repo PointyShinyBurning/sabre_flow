@@ -97,15 +97,17 @@ def tango_measurement_num_assign(grips_crf, exercise_crf, tango_data):
             # Not enough measures
             pass
 
-        data = data[data.seqNum != 0]
-
-        m = pandas.melt(data.drop(['Source','SubjectID']), id_vars=['seqNum'])
+        m = pandas.melt(
+            data.query('seqNum != 0')
+                .drop([cpgintegrate.SOURCE_FIELD_NAME,cpgintegrate.SUBJECT_ID_FIELD_NAME], axis=1),
+                        id_vars=['seqNum'])
 
         m['variable'] = m['variable'] + '_' + m['seqNum'].astype(int).apply("{:0>2d}".format)
 
         sheet = m.set_index('variable').T
 
-        return sheet.assign(Steppermins=mins, StepperSecs=secs, Source=data.iloc[0].Source)
+        return sheet.assign(**{'Steppermins':mins, 'StepperSecs':secs,
+                               cpgintegrate.SOURCE_FIELD_NAME:data.iloc[0].Source})
 
     out_frame = \
         (tango_data
