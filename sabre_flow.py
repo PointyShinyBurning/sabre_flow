@@ -65,7 +65,6 @@ def tango_measurement_num_assign(grips_crf, exercise_crf, tango_data):
         except KeyError:
             grip_strength = None
 
-
         data.reset_index(inplace=True)
         # Error codes to zero if blank
         data.loc[data.ErrorCode.isnull(), "ErrorCode"] = 0
@@ -100,16 +99,13 @@ def tango_measurement_num_assign(grips_crf, exercise_crf, tango_data):
 
         data = data[data.seqNum != 0]
 
-        m = pandas.melt(data, id_vars=['seqNum'])
+        m = pandas.melt(data.drop(['Source','SubjectID']), id_vars=['seqNum'])
 
         m['variable'] = m['variable'] + '_' + m['seqNum'].astype(int).apply("{:0>2d}".format)
-        m['ind'] = 0
 
-        sheet = m.pivot(index='ind', columns='variable', values='value')
-        sheet['StepperMins'] = mins
-        sheet['StepperSecs'] = secs
+        sheet = m.set_index('variable').T
 
-        return sheet
+        return sheet.assign(Steppermins=mins, StepperSecs=secs, Source=data.iloc[0].Source)
 
     out_frame = \
         (tango_data
