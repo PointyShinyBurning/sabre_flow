@@ -1,10 +1,12 @@
 import pandas
 from airflow import DAG
 from datetime import datetime
+import cpgintegrate
 from cpgintegrate.connectors import OpenClinica, XNAT, Teleform
 from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr, omron_bp, mvo2_exercise
 from airflow.operators.cpg_plugin import CPGDatasetToXCom, CPGProcessorToXCom, XComDatasetProcess, XComDatasetToCkan
 import re
+from datetime import timedelta
 
 
 # ~~~~~~~~~~ Data processing functions ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -36,9 +38,82 @@ def omron_bp_combine(bp_left, bp_right):
             .assign(Pulse=bp_left.Pulse.combine_first(bp_right.Pulse).round().astype(int)))
 
 
-def tango_measurement_num_assign(grips_crf, excercise_crf, tango_data):
-    # TODO Join and process these according to sequence
-    return tango_data
+def tango_measurement_num_assign(grips_crf, exercise_crf, tango_data):
+
+    def widen_by_meaurement_sequence(data: pandas.DataFrame):
+
+        subject_id = data.index.values[0][0]
+
+        data.reset_index(cpgintegrate.SUBJECT_ID_FIELD_NAME)
+
+        mins, secs = exercise_crf.loc[subject_id, ['StepperMins', 'StepperSecs']].values[0]
+
+        ex_time = timedelta(minutes=mins, seconds=secs)
+
+        if ex_time > timedelta(minutes=5, seconds=20):
+            ex_measures = 7
+        elif ex_time > timedelta(minutes=3, seconds=20):
+            ex_measures = 6
+        elif ex_time > timedelta(minutes=1, seconds=20):
+            ex_measures = 5
+        elif ex_time > timedelta(minutes=0, seconds=0):
+            ex_measures = 4
+        else:
+            ex_measures = 2
+
+        # Work out if they did grip test or not
+        try:
+            grip_strength = grips_crf.loc[subject_id]
+        except KeyError:
+            grip_strength = None
+        # Error codes to zero if blank
+        data.loc[data.ErrorCode.isnull(), "ErrorCode"] = 0
+
+        # Remove #less lines
+        data = data[data["#"].notnull()]
+
+        # Trim data according to measurement sequence
+        data.index = range(0, len(data))
+        data['seqNum'] = 0
+        if grip_strength:
+            skip_errs = [True] * 6
+            skip_errs[2] = False
+        else:
+            skip_errs = [True] * 4
+        skip_errs += [False] * ex_measures
+        meas_num = 0
+        for seqNum in range(0, len(skip_errs)):
+            if skip_errs[seqNum]:
+                while data.loc[meas_num].ErrorCode != 0:
+                    meas_num += 1
+            data.ix[meas_num, 'seqNum'] = int(seqNum + 1)
+            meas_num += 1
+
+        if data[data.seqNum == data.seqNum.max()].iloc[0].ErrorCode != 0:
+            data.iloc[-1].seq_num = 14
+
+        data = data[data.seqNum != 0]
+
+        m = pandas.melt(data, id_vars=['seqNum'])
+
+        m['variable'] = m['variable'] + '_' + m['seqNum'].astype(int).apply("{:0>2d}".format)
+        m['ind'] = 0
+
+        sheet = m.pivot(index='ind', columns='variable', values='value')
+        sheet['StepperMins'] = mins
+        sheet['StepperSecs'] = secs
+
+        return sheet
+
+    out_frame = \
+        (tango_data
+         .dropna(how="all", subset=['#'])
+         .assign({cpgintegrate.SUBJECT_ID_FIELD_NAME: lambda df: df.index})
+         .set_index([cpgintegrate.SUBJECT_ID_FIELD_NAME, '#'])
+         .groupby(level=0)
+         .apply(widen_by_meaurement_sequence)
+         )
+    return out_frame
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -68,7 +143,6 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     sr_dexa = CPGProcessorToXCom(task_id="SR_DEXA", **xnat_args, processor=dicom_sr.to_frame,
                                  iter_files_kwargs=dexa_selector_kwargs)
     tango_sequence = XComDatasetProcess(task_id='TANGO', post_processor=tango_measurement_num_assign)
-    tango_cols = ['#', 'Date', 'Time', 'SYS', 'DIA', 'HR', 'ErrorCode', 'BpType', 'Comments']
     CPGDatasetToXCom(task_id='Grip_Strength', **oc_args, dataset_args=['F_GRIPSTRENGTH']) >> tango_sequence
 
     operators_resource_ids = [
