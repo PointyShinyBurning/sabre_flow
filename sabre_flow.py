@@ -44,7 +44,7 @@ def tango_measurement_num_assign(grips_crf, exercise_crf, tango_data):
 
         subject_id = data.index.values[0][0]
 
-        data.reset_index(cpgintegrate.SUBJECT_ID_FIELD_NAME)
+        data.reset_index(inplace=True)
 
         mins, secs = exercise_crf.loc[subject_id, ['StepperMins', 'StepperSecs']].astype(int).values
 
