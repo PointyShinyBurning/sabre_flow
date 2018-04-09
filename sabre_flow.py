@@ -108,7 +108,7 @@ def tango_measurement_num_assign(grips_crf, exercise_crf, tango_data):
     out_frame = \
         (tango_data
          .dropna(how="all", subset=['#'])
-         .assign({cpgintegrate.SUBJECT_ID_FIELD_NAME: lambda df: df.index})
+         .assign(**{cpgintegrate.SUBJECT_ID_FIELD_NAME: (lambda df: df.index)})
          .set_index([cpgintegrate.SUBJECT_ID_FIELD_NAME, '#'])
          .groupby(level=0)
          .apply(widen_by_meaurement_sequence)
