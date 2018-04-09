@@ -107,7 +107,7 @@ def tango_measurement_num_assign(grips_crf, exercise_crf, tango_data):
         sheet = m.set_index('variable').drop('seqNum', axis=1).T
 
         return sheet.assign(**{'Steppermins':mins, 'StepperSecs':secs,
-                               cpgintegrate.SOURCE_FIELD_NAME:data.iloc[0].Source}).squeeze()
+                               cpgintegrate.SOURCE_FIELD_NAME:data.iloc[0].Source}).reset_index()
 
     out_frame = \
         (tango_data
@@ -116,6 +116,7 @@ def tango_measurement_num_assign(grips_crf, exercise_crf, tango_data):
          .set_index([cpgintegrate.SUBJECT_ID_FIELD_NAME, '#'])
          .groupby(level=0)
          .apply(widen_by_meaurement_sequence)
+         .unstack()
          )
     return out_frame
 
