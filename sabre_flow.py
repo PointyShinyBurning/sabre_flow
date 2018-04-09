@@ -44,7 +44,7 @@ def tango_measurement_num_assign(grips_crf, exercise_crf, tango_data):
 
         subject_id = data.index.values[0][0]
 
-        mins, secs = exercise_crf.loc[subject_id, ['StepperMins', 'StepperSecs']].astype(int).values
+        mins, secs = exercise_crf.loc[subject_id, ['StepperMins', 'StepperSecs']].fillna(0).astype(int).values
 
         ex_time = timedelta(minutes=int(mins), seconds=int(secs))
 
