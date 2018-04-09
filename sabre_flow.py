@@ -37,6 +37,7 @@ def omron_bp_combine(bp_left, bp_right):
 
 
 def tango_measurement_num_assign(grips_crf, excercise_crf, tango_data):
+    # TODO Join and process these according to sequence
     return tango_data
 
 
