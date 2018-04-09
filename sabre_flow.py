@@ -46,7 +46,7 @@ def tango_measurement_num_assign(grips_crf, exercise_crf, tango_data):
 
         data.reset_index(cpgintegrate.SUBJECT_ID_FIELD_NAME)
 
-        mins, secs = exercise_crf.loc[subject_id, ['StepperMins', 'StepperSecs']].values
+        mins, secs = exercise_crf.loc[subject_id, ['StepperMins', 'StepperSecs']].astype(int).values
 
         ex_time = timedelta(minutes=mins, seconds=secs)
 
