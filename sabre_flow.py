@@ -3,11 +3,13 @@ from airflow import DAG
 from datetime import datetime
 import cpgintegrate
 from airflow.operators.dummy_operator import DummyOperator
+from cpgintegrate.connectors.imap import IMAP
 from cpgintegrate.connectors.openclinica import OpenClinica
 from cpgintegrate.connectors.xnat import XNAT
 from cpgintegrate.connectors.teleform import Teleform
 from cpgintegrate.connectors.ckan import CKAN
-from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr, omron_bp, mvo2_exercise
+from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr, omron_bp, mvo2_exercise,\
+    doctors_lab_bloods
 from airflow.operators.cpg_plugin import CPGDatasetToXCom, CPGProcessorToXCom, XComDatasetProcess, XComDatasetToCkan
 import re
 from datetime import timedelta
@@ -218,6 +220,20 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     CPGProcessorToXCom(task_id='MVO2', **oc_args, iter_files_args=['I_EXERC_MVO2_XLSX'],
                        processor=mvo2_exercise.to_frame)
 
+    def sort_report_dates(match_from, match_to):
+        return (match_indices(match_from, match_to)
+                .assign(report_date=
+                        lambda df: pandas.to_datetime(df['Report Date:'], format='%d %B %Y %H:%M:%S', errors='coerce'))
+                .sort_values('report_date')
+                .drop(columns='report_date'))
+
+    [CPGProcessorToXCom(task_id='Bloods_raw', connector_class=IMAP, connection_id='office365',
+                       iter_files_args=['RMX0960', 'inbox'], processor=doctors_lab_bloods.to_frame),
+        subject_basics] >> \
+        XComDatasetProcess(task_id='Bloods_matched', post_processor=sort_report_dates, keep_duplicates='last') >> [
+        XComDatasetProcess(task_id='Bloods_Ranges', filter_cols='.*_OutOfRange|_Range'),
+        XComDatasetProcess(task_id='Bloods', filter_cols='^((?!_OutOfRange|_Range).)*$')
+    ]
     pushes = {'Ultrasound_SRs': '_sabret3admin',
               'Subcutaneous_Fat': 'anthropometrics',
               'DEXA_Hip': 'anthropometrics',
@@ -229,12 +245,20 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
               'Bioimpedance': 'anthropometrics',
               'Liver_Elastography': 'anthropometrics',
               'Questionnaire_1A': 'questionnaires',
+              'Questionnaire_1A_raw': '_sabret3admin',
+              'Questionnaire_1A_edited': '_sabret3admin',
               'Questionnaire_1B': 'questionnaires',
+              'Questionnaire_1B_raw': '_sabret3admin',
+              'Questionnaire_1B_edited': '_sabret3admin',
               'Questionnaire_2': 'questionnaires',
+              'Questionnaire_2_raw': '_sabret3admin',
+              'Questionnaire_2_edited': '_sabret3admin',
               'Exercise_CRF': 'exercise',
               'TANGO': 'exercise',
               'MVO2': 'exercise',
               'Clinic_BP': 'vascular',
+              'Bloods_Ranges': '_sabret3admin',
+              'Bloods': 'bloods-urine-saliva',
               }
 
     for task_id, dataset in pushes.items():
