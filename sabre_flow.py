@@ -9,7 +9,7 @@ from cpgintegrate.connectors.xnat import XNAT
 from cpgintegrate.connectors.teleform import Teleform
 from cpgintegrate.connectors.ckan import CKAN
 from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr, omron_bp, mvo2_exercise,\
-    doctors_lab_bloods
+    doctors_lab_bloods, pulsecor_bp
 from airflow.operators.cpg_plugin import CPGDatasetToXCom, CPGProcessorToXCom, XComDatasetProcess, XComDatasetToCkan
 import re
 from datetime import timedelta
@@ -234,6 +234,10 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         XComDatasetProcess(task_id='Bloods_Ranges', filter_cols='.*_OutOfRange|_Range'),
         XComDatasetProcess(task_id='Bloods', filter_cols='^((?!_OutOfRange|_Range).)*$')
     ]
+
+    CPGProcessorToXCom(task_id="Pulsecor_BP", **oc_args, processor=pulsecor_bp.to_frame,
+                       iter_files_args=['I_PULSE_PULSECORFILE'])
+
     pushes = {'Ultrasound_SRs': '_sabret3admin',
               'Subcutaneous_Fat': 'anthropometrics',
               'DEXA_Hip': 'anthropometrics',
@@ -257,6 +261,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
               'TANGO': 'exercise',
               'MVO2': 'exercise',
               'Clinic_BP': 'vascular',
+              'Pulsecor_BP': 'vascular',
               'Bloods_Ranges': '_sabret3admin',
               'Bloods': 'bloods-urine-saliva',
               }
