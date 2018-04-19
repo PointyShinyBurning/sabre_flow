@@ -9,7 +9,7 @@ from cpgintegrate.connectors.xnat import XNAT
 from cpgintegrate.connectors.teleform import Teleform
 from cpgintegrate.connectors.ckan import CKAN
 from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr, omron_bp, mvo2_exercise,\
-    doctors_lab_bloods, pulsecor_bp
+    doctors_lab_bloods, pulsecor_bp, microquark_spirometry
 from airflow.operators.cpg_plugin import CPGDatasetToXCom, CPGProcessorToXCom, XComDatasetProcess, XComDatasetToCkan
 import re
 from datetime import timedelta
@@ -238,6 +238,11 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     CPGProcessorToXCom(task_id="Pulsecor_BP", **oc_args, processor=pulsecor_bp.to_frame,
                        iter_files_args=['I_PULSE_PULSECORFILE'])
 
+    CPGDatasetToXCom(task_id="AGES_CRF", **oc_args, dataset_args=['F_AGEFILE'])
+
+    CPGProcessorToXCom(task_id='Spirometry', **oc_args, iter_files_args=['I_SPIRO_SPIROFILE'],
+                       processor=microquark_spirometry.to_frame)
+
     pushes = {'Ultrasound_SRs': '_sabret3admin',
               'Subcutaneous_Fat': 'anthropometrics',
               'DEXA_Hip': 'anthropometrics',
@@ -264,6 +269,8 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
               'Pulsecor_BP': 'vascular',
               'Bloods_Ranges': '_sabret3admin',
               'Bloods': 'bloods-urine-saliva',
+              'AGES_CRF': 'ages',
+              'Spirometry': 'respiratory',
               }
 
     for task_id, dataset in pushes.items():
