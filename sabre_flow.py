@@ -178,7 +178,9 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                                              'xnat:imagesessiondata/scanner/manufacturer'] == 'Philips Medical Systems'
                                          and x['xnat:imagesessiondata/scanner/model'] != 'Achieva',
                            "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]
-                       }) >> XComDatasetProcess(task_id='Subcutaneous_Fat', post_processor=ult_sr_sats)
+                       }) >> [XComDatasetProcess(task_id='Subcutaneous_Fat', post_processor=ult_sr_sats),
+                              XComDatasetToCkan(task_id='Ultrasound_SRs_ckan_push', ckan_package_id='_sabret3admin',
+                                                ckan_connection_id='ckan', push_data_dictionary=False)]
 
     CPGDatasetToXCom(task_id="Falls_Risk_CRF", **oc_args, dataset_args=['F_FALLSRISKSAB'])
 
@@ -243,8 +245,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     CPGProcessorToXCom(task_id='Spirometry', **oc_args, iter_files_args=['I_SPIRO_SPIROFILE'],
                        processor=microquark_spirometry.to_frame)
 
-    pushes = {'Ultrasound_SRs': '_sabret3admin',
-              'Subcutaneous_Fat': 'anthropometrics',
+    pushes = {'Subcutaneous_Fat': 'anthropometrics',
               'DEXA_Hip': 'anthropometrics',
               'DEXA_Spine': 'anthropometrics',
               'DEXA_Body': 'anthropometrics',
