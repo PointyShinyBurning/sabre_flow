@@ -245,6 +245,10 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     CPGProcessorToXCom(task_id='Spirometry', **oc_args, iter_files_args=['I_SPIRO_SPIROFILE'],
                        processor=microquark_spirometry.to_frame)
 
+    CPGProcessorToXCom(task_id="cIMT", **ckan_args, iter_files_args=['_cimt_files'],
+                       processor=lambda f: pandas.read_csv(f, sep='\t')
+                       .set_index("Patient's Name").rename_axis(cpgintegrate.SUBJECT_ID_FIELD_NAME))
+
     pushes = {'Subcutaneous_Fat': 'anthropometrics',
               'DEXA_Hip': 'anthropometrics',
               'DEXA_Spine': 'anthropometrics',
@@ -272,6 +276,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
               'Bloods': 'bloods-urine-saliva',
               'AGES_CRF': 'ages',
               'Spirometry': 'respiratory',
+              'cIMT': 'vascular',
               }
 
     for task_id, dataset in pushes.items():
