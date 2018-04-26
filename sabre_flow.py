@@ -249,7 +249,13 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                        processor=lambda f: pandas.read_csv(f, sep='\t')
                        .set_index("Patient's Name").rename_axis(cpgintegrate.SUBJECT_ID_FIELD_NAME))
 
-    pushes = {'Subcutaneous_Fat': 'anthropometrics',
+    CPGDatasetToXCom(task_id="Bloods_CRF", **oc_args, dataset_args=['F_BLOODSCOLLEC'])
+
+    CPGProcessorToXCom(task_id="Glasgow_bloods", **ckan_args, iter_files_args=['_bloods_files'],
+                       processor=lambda f: pandas.read_excel(f))
+
+    pushes = {'Glasgow_bloods': '_sabret3admin',
+              'Subcutaneous_Fat': 'anthropometrics',
               'DEXA_Hip': 'anthropometrics',
               'DEXA_Spine': 'anthropometrics',
               'DEXA_Body': 'anthropometrics',
@@ -277,6 +283,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
               'AGES_CRF': 'ages',
               'Spirometry': 'respiratory',
               'cIMT': 'vascular',
+              'Bloods_CRF': '_sabret3admin',
               }
 
     for task_id, dataset in pushes.items():
