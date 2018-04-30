@@ -13,7 +13,7 @@ from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom
 from airflow.operators.cpg_plugin import CPGDatasetToXCom, CPGProcessorToXCom, XComDatasetProcess, XComDatasetToCkan
 import re
 from datetime import timedelta
-from cpgintegrate.processors.utils import edit_using, match_indices
+from cpgintegrate.processors.utils import edit_using, match_indices, replace_indices
 
 
 # ~~~~~~~~~~ Data processing functions ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -245,14 +245,24 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     CPGProcessorToXCom(task_id='Spirometry', **oc_args, iter_files_args=['I_SPIRO_SPIROFILE'],
                        processor=microquark_spirometry.to_frame)
 
-    CPGProcessorToXCom(task_id="cIMT", **ckan_args, iter_files_args=['_cimt_files'],
-                       processor=lambda f: pandas.read_csv(f, sep='\t')
-                       .set_index("Patient's Name").rename_axis(cpgintegrate.SUBJECT_ID_FIELD_NAME))
-
     CPGDatasetToXCom(task_id="Bloods_CRF", **oc_args, dataset_args=['F_BLOODSCOLLEC'])
 
     CPGProcessorToXCom(task_id="Glasgow_bloods", **ckan_args, iter_files_args=['_bloods_files'],
                        processor=lambda f: pandas.read_excel(f))
+
+    CPGDatasetToXCom(task_id='xnat_sessions', **xnat_args)
+
+    indexes_seen_as_partners = \
+        CPGDatasetToXCom(task_id='indexes_seen_as_partners', **ckan_args, dataset_kwargs={'index_col': 'IndexID'},
+                         dataset_args=['basics-and-attendance', 'indexes_seen_as_partners'],)
+
+    [[CPGProcessorToXCom(task_id="cIMT_raw", **ckan_args, iter_files_args=['_cimt_files'],
+                         processor=lambda f: pandas.read_csv(f, sep='\t')
+                         .set_index("Patient's Name").rename_axis(cpgintegrate.SUBJECT_ID_FIELD_NAME)),
+      indexes_seen_as_partners] >> \
+        XComDatasetProcess(task_id='cIMT_edited', post_processor=replace_indices),
+        subject_basics] >> \
+        XComDatasetProcess(task_id='cIMT', post_processor=match_indices)
 
     pushes = {'Glasgow_bloods': '_sabret3admin',
               'Subcutaneous_Fat': 'anthropometrics',
@@ -284,6 +294,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
               'Spirometry': 'respiratory',
               'cIMT': 'vascular',
               'Bloods_CRF': '_sabret3admin',
+              'xnat_sessions': '_sabret3admin',
               }
 
     for task_id, dataset in pushes.items():
