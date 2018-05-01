@@ -245,10 +245,30 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     CPGProcessorToXCom(task_id='Spirometry', **oc_args, iter_files_args=['I_SPIRO_SPIROFILE'],
                        processor=microquark_spirometry.to_frame)
 
-    CPGDatasetToXCom(task_id="Bloods_CRF", **oc_args, dataset_args=['F_BLOODSCOLLEC'])
+    def samples_to_subjects(bloods_crf, sample_list):
+        results = (bloods_crf
+                        .assign(SubjectID=bloods_crf.index).melt(id_vars='SubjectID').dropna()
+                        .pipe(lambda df: df[df.value.str.isdigit()])
+                        .assign(value=lambda df: df.value.map(lambda val: int(val)))
+                        .join(sample_list, on='value', rsuffix='_results', how='inner')
+                        .rename(columns={'value': 'SampleID'})
+                   )
+        pandas.concat([
+            results.loc[:, ['SampleID', 'variable']].rename(columns={'variable': 'value'}).assign(variable='tube_type'),
+            results.loc[:, ['SampleID', 'variable_results', 'value_results']].rename(columns=lambda col: col.replace('_results','')),
+            results.loc[:, ['SampleID', 'Source']].rename(columns={'Source': 'value'}).assign(variable='Source'),
+        ])
+        return results
 
-    CPGProcessorToXCom(task_id="Glasgow_bloods", **ckan_args, iter_files_args=['_bloods_files'],
-                       processor=lambda f: pandas.read_excel(f))
+
+
+    [CPGDatasetToXCom(task_id="Bloods_CRF", **oc_args, dataset_args=['F_BLOODSCOLLEC'])
+        , CPGProcessorToXCom(task_id="External_bloods_samples", **ckan_args, iter_files_args=['_bloods_files'],
+                             processor=lambda f: pandas.read_excel(f)
+                             .pipe(lambda df: df.rename(columns={df.columns[0]: 'SampleID'}))
+                             .melt(id_vars='SampleID')
+                             .dropna().set_index('SampleID'))] >>\
+    XComDatasetProcess(task_id='Bloods_external_results', post_processor=samples_to_subjects)
 
     CPGDatasetToXCom(task_id='xnat_sessions', **xnat_args)
 
@@ -264,7 +284,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         subject_basics] >> \
         XComDatasetProcess(task_id='cIMT', post_processor=match_indices)
 
-    pushes = {'Glasgow_bloods': '_sabret3admin',
+    pushes = {'External_bloods_samples': '_sabret3admin',
               'Subcutaneous_Fat': 'anthropometrics',
               'DEXA_Hip': 'anthropometrics',
               'DEXA_Spine': 'anthropometrics',
