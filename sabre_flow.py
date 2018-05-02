@@ -247,11 +247,11 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
 
     def samples_to_subjects(bloods_crf, sample_list):
         results = (bloods_crf
-                        .assign(SubjectID=bloods_crf.index).melt(id_vars='SubjectID').dropna()
-                        .pipe(lambda df: df[df.value.str.isdigit()])
-                        .assign(value=lambda df: df.value.map(lambda val: int(val)))
-                        .join(sample_list, on='value', rsuffix='_results', how='inner')
-                        .rename(columns={'value': 'SampleID'})
+                   .assign(SubjectID=bloods_crf.index).melt(id_vars='SubjectID').dropna()
+                   .pipe(lambda df: df[df.value.str.isdigit()])
+                   .assign(value=lambda df: df.value.map(lambda val: int(val)))
+                   .join(sample_list, on='value', rsuffix='_results', how='inner')
+                   .rename(columns={'value': 'SampleID'})
                    )
         pandas.concat([
             results.loc[:, ['SampleID', 'variable']].rename(columns={'variable': 'value'}).assign(variable='tube_type'),
@@ -261,14 +261,13 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         return results
 
 
-
     [CPGDatasetToXCom(task_id="Bloods_CRF", **oc_args, dataset_args=['F_BLOODSCOLLEC'])
         , CPGProcessorToXCom(task_id="External_bloods_samples", **ckan_args, iter_files_args=['_bloods_files'],
                              processor=lambda f: pandas.read_excel(f)
                              .pipe(lambda df: df.rename(columns={df.columns[0]: 'SampleID'}))
                              .melt(id_vars='SampleID')
                              .dropna().set_index('SampleID'))] >>\
-    XComDatasetProcess(task_id='Bloods_external_results', post_processor=samples_to_subjects)
+        XComDatasetProcess(task_id='Bloods_external_results', post_processor=samples_to_subjects)
 
     CPGDatasetToXCom(task_id='xnat_sessions', **xnat_args)
 
@@ -285,6 +284,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         XComDatasetProcess(task_id='cIMT', post_processor=match_indices)
 
     pushes = {'External_bloods_samples': '_sabret3admin',
+              'Bloods_external_results': '_sabret3admin',
               'Subcutaneous_Fat': 'anthropometrics',
               'DEXA_Hip': 'anthropometrics',
               'DEXA_Spine': 'anthropometrics',
