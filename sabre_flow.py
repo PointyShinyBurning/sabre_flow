@@ -285,6 +285,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
 
     pushes = {'External_bloods_samples': '_sabret3admin',
               'Bloods_external_results': '_sabret3admin',
+              'SR_DEXA': '_sabret3admin',
               'Subcutaneous_Fat': 'anthropometrics',
               'DEXA_Hip': 'anthropometrics',
               'DEXA_Spine': 'anthropometrics',
