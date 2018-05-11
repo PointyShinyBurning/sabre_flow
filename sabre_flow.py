@@ -6,7 +6,7 @@ from airflow.operators.dummy_operator import DummyOperator
 from cpgintegrate.connectors.imap import IMAP
 from cpgintegrate.connectors.openclinica import OpenClinica
 from cpgintegrate.connectors.xnat import XNAT
-from cpgintegrate.connectors.teleform import Teleform
+from cpgintegrate.connectors.postgres import Postgres
 from cpgintegrate.connectors.ckan import CKAN
 from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr, omron_bp, mvo2_exercise,\
     doctors_lab_bloods, pulsecor_bp, microquark_spirometry
@@ -14,6 +14,7 @@ from airflow.operators.cpg_plugin import CPGDatasetToXCom, CPGProcessorToXCom, X
 import re
 from datetime import timedelta
 from cpgintegrate.processors.utils import edit_using, match_indices, replace_indices
+import IPython
 
 
 # ~~~~~~~~~~ Data processing functions ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -127,6 +128,43 @@ def tango_measurement_num_assign(grips_crf, exercise_crf, tango_data):
     return out_frame
 
 
+def tubeloc_match(bloods_crf, tubelocs):
+
+    blood_col_pairs = [('EDTA_WB1ml_1', 'EDTA_WB1ml_Rack1'),
+                       ('EDTA_WB_1', 'EDTA_WB_Rack1_1'),
+                       ('SALIVA_Grey_1', 'SALIVA_Grey_Rack1_1'),
+                       ('PAXGENE_RNA_Light_Brown_1', 'PAXGENE_RNA_Light_Brown_Rack1_1'),
+                       ('PAXGENE_DNA_Light_Blue_1', 'PAXGENE_DNA_Light_Blue_Rack1_1'),
+                       ('Sodium_Heparin_PlusDMSO_Dark_Green_1', 'Sodium_Heparin_PlusDMSO_Rack1'),
+                       ]
+
+    multiples_prefixes = ['EDTA_Plasma_Purple', 'SST_serum_Orange', 'URINE_Yellow']
+
+    extra_pairs = []
+    for prefix in multiples_prefixes:
+        i = 1
+        suffix = "_%s" % i
+        while prefix + suffix in bloods_crf.columns:
+            extra_pairs.append((prefix + suffix, prefix + '_Rack1' + suffix))
+            i += 1
+            suffix = "_%s" % i
+
+    blood_col_pairs.extend(extra_pairs)
+
+    melted_bloods = pandas.concat(
+        [bloods_crf.assign(SubjectID=bloods_crf.index)
+            .melt(id_vars=["SubjectID", rack_var], value_vars=tube_var, var_name='product')
+            .rename(columns={rack_var: 'openclinica_rack', 'value': 'tube_code'})
+         for tube_var, rack_var in blood_col_pairs]
+    )
+
+    melted_bloods = melted_bloods[melted_bloods['tube_code'].notnull()]
+
+    return (tubelocs
+            .query('~tube_code.str.contains("No ")')
+            .groupby(level=0).last()
+            .merge(melted_bloods, how='outer', right_on='tube_code', left_index=True))
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -141,7 +179,7 @@ default_args = {
 with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * *', default_args=default_args) as dag:
     oc_args = {"connector_class": OpenClinica, "connection_id": 'sabrev3_openclinica', "pool": "openclinica"}
     xnat_args = {"connector_class": XNAT, "connection_id": 'sabrev3_xnat', "pool": "xnat"}
-    teleform_args = {"connector_class": Teleform, "connection_id": 'teleform'}
+    teleform_args = {"connector_class": Postgres, "connection_id": 'teleform'}
     ckan_args = {"connector_class": CKAN, "connection_id": "ckan"}
 
     dexa_selector_kwargs = {
@@ -260,8 +298,15 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         ])
         return results
 
+    bloods_collection = CPGDatasetToXCom(task_id="Bloods_CRF", **oc_args, dataset_args=['F_BLOODSCOLLEC'])
 
-    [CPGDatasetToXCom(task_id="Bloods_CRF", **oc_args, dataset_args=['F_BLOODSCOLLEC'])
+    [bloods_collection,
+     CPGDatasetToXCom(task_id='tubeloc', connector_class=Postgres, connection_id='tubeloc',dataset_args=['tubeloc'],
+                      dataset_kwargs={'index_col': 'tube_code', 'index_col_is_subject_id': False})] >>\
+    XComDatasetProcess(task_id='bloods_tubeloc', post_processor=tubeloc_match)
+
+
+    [bloods_collection
         , CPGProcessorToXCom(task_id="External_bloods_samples", **ckan_args, iter_files_args=['_bloods_files'],
                              processor=lambda f: pandas.read_excel(f)
                              .pipe(lambda df: df.rename(columns={df.columns[0]: 'SampleID'}))
@@ -296,14 +341,14 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
               'Bioimpedance': 'anthropometrics',
               'Liver_Elastography': 'anthropometrics',
               'Questionnaire_1A': 'questionnaires',
-              'Questionnaire_1A_raw': '_sabret3admin',
-              'Questionnaire_1A_edited': '_sabret3admin',
               'Questionnaire_1B': 'questionnaires',
-              'Questionnaire_1B_raw': '_sabret3admin',
-              'Questionnaire_1B_edited': '_sabret3admin',
               'Questionnaire_2': 'questionnaires',
-              'Questionnaire_2_raw': '_sabret3admin',
-              'Questionnaire_2_edited': '_sabret3admin',
+              # 'Questionnaire_1A_raw': '_sabret3admin',
+              # 'Questionnaire_1A_edited': '_sabret3admin',
+              # 'Questionnaire_2_raw': '_sabret3admin',
+              # 'Questionnaire_2_edited': '_sabret3admin',
+              # 'Questionnaire_1B_raw': '_sabret3admin',
+              # 'Questionnaire_1B_edited': '_sabret3admin',
               'Exercise_CRF': 'exercise',
               'TANGO': 'exercise',
               'MVO2': 'exercise',
@@ -316,6 +361,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
               'cIMT': 'vascular',
               'Bloods_CRF': '_sabret3admin',
               'xnat_sessions': '_sabret3admin',
+              'bloods_tubeloc': '_sabret3admin',
               }
 
     for task_id, dataset in pushes.items():
