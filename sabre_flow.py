@@ -328,6 +328,8 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         subject_basics] >> \
         XComDatasetProcess(task_id='cIMT', post_processor=match_indices)
 
+    CPGDatasetToXCom(task_id='DEXA_CRF', **oc_args, dataset_args=['F_DEXA'])
+
     pushes = {'External_bloods_samples': '_sabret3admin',
               'Bloods_external_results': '_sabret3admin',
               'SR_DEXA': '_sabret3admin',
@@ -362,6 +364,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
               'Bloods_CRF': '_sabret3admin',
               'xnat_sessions': '_sabret3admin',
               'bloods_tubeloc': '_sabret3admin',
+              'DEXA_CRF': '_sabret3admin',
               }
 
     for task_id, dataset in pushes.items():
