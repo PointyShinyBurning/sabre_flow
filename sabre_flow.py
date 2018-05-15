@@ -15,7 +15,7 @@ import re
 from datetime import timedelta
 from cpgintegrate.processors.utils import edit_using, match_indices, replace_indices
 import IPython
-
+import numpy
 
 # ~~~~~~~~~~ Data processing functions ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -196,7 +196,21 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         XComDatasetProcess(task_id="DEXA_Spine", row_filter=lambda row: 'Spine' in str(row['Analysis Type'])),
         XComDatasetProcess(task_id="DEXA_Body", row_filter=lambda row: 'Whole Body' in str(row['Analysis Type']))
     ]
-    CPGDatasetToXCom(task_id="Anthropometrics_CRF", **oc_args, dataset_args=['F_ANTHROPOMETR'])
+
+    [CPGProcessorToXCom(task_id="Bioimpedance_raw", **oc_args,
+                       iter_files_args=['I_ANTHR_BIOIMPEDANCEFILE'], processor=tanita_bioimpedance.to_frame) >> \
+        XComDatasetProcess(task_id="Bioimpedance",
+                           filter_cols=['BMI_WEIGHT', 'TABC_FATP', 'TABC_FATM', 'TABC_FFM', 'TABC_TBW', 'TABC_PMM',
+                                        'TABC_IMP', 'TABC_BMI', 'TABC_VFATL', 'TABC_RLFATP',
+                                        'TABC_RLFATM', 'TABC_RLFFM', 'TABC_RLPMM', 'TABC_RLIMP', 'TABC_LLFATP',
+                                        'TABC_LLFATM', 'TABC_LLFFM', 'TABC_LLPMM', 'TABC_LLIMP', 'TABC_RAFATP',
+                                        'TABC_RAFATM', 'TABC_RAFFM', 'TABC_RAPMM', 'TABC_RAIMP', 'TABC_LAFATP',
+                                        'TABC_LAFATM', 'TABC_LAFFM', 'TABC_LAPMM', 'TABC_LAIMP', 'TABC_TRFATP',
+                                        'TABC_TRFATM', 'TABC_TRFFM', 'TABC_TRPMM']),
+     CPGDatasetToXCom(task_id="Anthropometrics_CRF_raw", **oc_args, dataset_args=['F_ANTHROPOMETR'])] >> \
+        XComDatasetProcess(task_id="Anthropometrics_CRF", post_processor = lambda tanita, crf: crf.apply(
+                           lambda row: row.set_value('Weight', tanita.loc[row.name, 'BMI_WEIGHT'])
+                           if pandas.isnull(row['Weight']) else row, axis=1))
 
     tango_cols = ['#', 'Date', 'Time', 'SYS', 'DIA', 'HR', 'ErrorCode', 'BpType', 'Comments']
     [CPGDatasetToXCom(task_id='Grip_Strength', **oc_args, dataset_args=['F_GRIPSTRENGTH']),
@@ -218,7 +232,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                            "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]
                        }) >> [XComDatasetProcess(task_id='Subcutaneous_Fat', post_processor=ult_sr_sats),
                               XComDatasetToCkan(task_id='Ultrasound_SRs_ckan_push', ckan_package_id='_sabret3admin',
-                                                ckan_connection_id='ckan', push_data_dictionary=False)]
+                                                ckan_connection_id='ckan', push_data_dictionary=False, pool='ckan')]
 
     CPGDatasetToXCom(task_id="Falls_Risk_CRF", **oc_args, dataset_args=['F_FALLSRISKSAB'])
 
@@ -226,17 +240,6 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         task_id='Cognitive_CRF_Geriatric_Depression',
         filter_cols=['Satisfied', 'DroppedInterests', 'LifeEmpty', 'AfraidBadThings', 'Happy', 'Helpless',
                      'MemoryProblems', 'FullOfEnergy', 'HopelessSituation', 'MostBetterOff'])
-
-    CPGProcessorToXCom(task_id="I_ANTHR_BIOIMPEDANCEFILE_UNFILTERED", **oc_args,
-                       iter_files_args=['I_ANTHR_BIOIMPEDANCEFILE'], processor=tanita_bioimpedance.to_frame) >> \
-        XComDatasetProcess(task_id="Bioimpedance",
-                           filter_cols=['BMI_WEIGHT', 'TABC_FATP', 'TABC_FATM', 'TABC_FFM', 'TABC_TBW', 'TABC_PMM',
-                                        'TABC_IMP', 'TABC_BMI', 'TABC_VFATL', 'TABC_RLFATP',
-                                        'TABC_RLFATM', 'TABC_RLFFM', 'TABC_RLPMM', 'TABC_RLIMP', 'TABC_LLFATP',
-                                        'TABC_LLFATM', 'TABC_LLFFM', 'TABC_LLPMM', 'TABC_LLIMP', 'TABC_RAFATP',
-                                        'TABC_RAFATM', 'TABC_RAFFM', 'TABC_RAPMM', 'TABC_RAIMP', 'TABC_LAFATP',
-                                        'TABC_LAFATM', 'TABC_LAFFM', 'TABC_LAPMM', 'TABC_LAIMP', 'TABC_TRFATP',
-                                        'TABC_TRFATM', 'TABC_TRFFM', 'TABC_TRPMM'])
 
     CPGProcessorToXCom(task_id="Liver_Elastography", **oc_args, iter_files_args=['I_LIVER_ELASTOGRAPHYFILE'],
                        processor=epiq7_liverelast.to_frame)
@@ -370,4 +373,4 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     for task_id, dataset in pushes.items():
         tasks = {task.task_id: task for task in dag.topological_sort()}
         tasks[task_id] >> XComDatasetToCkan(task_id=task_id + "_ckan_push",
-                                            ckan_connection_id='ckan', ckan_package_id=dataset)
+                                            ckan_connection_id='ckan', ckan_package_id=dataset, pool='ckan')
