@@ -374,3 +374,24 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         tasks = {task.task_id: task for task in dag.topological_sort()}
         tasks[task_id] >> XComDatasetToCkan(task_id=task_id + "_ckan_push",
                                             ckan_connection_id='ckan', ckan_package_id=dataset, pool='ckan')
+
+    def six_dof_report(**frames):
+        def six_dof_count(df):
+            df_num = df.apply(lambda col: pandas.to_numeric(col, errors='coerce'))
+            return {col: (~df_num[col].between(mean - 6*std, mean + 6*std) & ~df_num[col].isna()).sum()
+                    for col, mean, std
+                    in zip(df_num.columns, df_num.mean(), df_num.std())
+                    if not all(df_num[col].isna())
+                    }
+
+        return pandas.DataFrame(
+            ({'frame': task_id, 'col': column, 'six_dof_removed': count}
+             for task_id, df in frames.items()
+             for column, count in six_dof_count(df).items()
+            )
+        )
+
+    [task for task in dag.topological_sort() if task.task_id in pushes.keys()] >> \
+        XComDatasetProcess(task_id='six_dof_report', post_processor=six_dof_report, task_id_kwargs=True) >> \
+        XComDatasetToCkan(task_id='six_dof_report_ckan_push', ckan_connection_id='ckan',
+                          ckan_package_id='_sabret3admin', pool='ckan')
