@@ -388,10 +388,11 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
             ({'frame': task_id, 'col': column, 'six_dof_removed': count}
              for task_id, df in frames.items()
              for column, count in six_dof_count(df).items()
-            )
-        )
+             )
+        ).loc[lambda df: df.six_dof_removed > 0, ['frame', 'col', 'six_dof_removed']]\
+            .sort_values('six_dof_removed', ascending=False)
 
-    [task for task in dag.topological_sort() if task.task_id in pushes.keys()] >> \
+    [task for task in dag.topological_sort() if task.task_id in pushes.keys() and pushes[task.task_id] != '_sabret3admin'] >> \
         XComDatasetProcess(task_id='six_dof_report', post_processor=six_dof_report, task_id_kwargs=True) >> \
         XComDatasetToCkan(task_id='six_dof_report_ckan_push', ckan_connection_id='ckan',
                           ckan_package_id='_sabret3admin', pool='ckan')
