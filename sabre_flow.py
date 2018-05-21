@@ -376,8 +376,8 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                                             ckan_connection_id='ckan', ckan_package_id=dataset, pool='ckan')
 
 
-    def six_dof_report(**frames):
-        def six_dof_count(df):
+    def six_std_report(**frames):
+        def six_std_count(df):
             df_num = df.apply(lambda col: pandas.to_numeric(col, errors='coerce'))
             return {col: (~df_num[col].between(mean - 6*std, mean + 6*std) & ~df_num[col].isna()).sum()
                     for col, mean, std
@@ -386,14 +386,14 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                     }
 
         return pandas.DataFrame(
-            ({'frame': task_id, 'col': column, 'six_dof_removed': count, 'dataset': pushes[task_id]}
+            ({'frame': task_id, 'col': column, 'six_std_removed': count, 'dataset': pushes[task_id]}
              for task_id, df in frames.items()
-             for column, count in six_dof_count(df).items()
+             for column, count in six_std_count(df).items()
              )
-        ).loc[lambda df: df.six_dof_removed > 0, ['dataset', 'frame', 'col', 'six_dof_removed']]\
-            .sort_values('six_dof_removed', ascending=False)
+        ).loc[lambda df: df.six_std_removed > 0, ['dataset', 'frame', 'col', 'six_std_removed']]\
+            .sort_values('six_std_removed', ascending=False)
 
     [task for task in dag.topological_sort() if task.task_id in pushes.keys() and pushes[task.task_id] != '_sabret3admin'] >> \
-        XComDatasetProcess(task_id='six_dof_report', post_processor=six_dof_report, task_id_kwargs=True) >> \
-        XComDatasetToCkan(task_id='six_dof_report_ckan_push', ckan_connection_id='ckan',
+        XComDatasetProcess(task_id='six_std_report', post_processor=six_std_report, task_id_kwargs=True) >> \
+        XComDatasetToCkan(task_id='six_std_report_ckan_push', ckan_connection_id='ckan',
                           ckan_package_id='_sabret3admin', pool='ckan')
