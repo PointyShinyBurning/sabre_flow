@@ -248,8 +248,8 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                            CPGDatasetToXCom(task_id="Questionnaire_1B_raw", **teleform_args, dataset_args=['quest_1b']),
                            CPGDatasetToXCom(task_id="Questionnaire_2_raw", **teleform_args, dataset_args=['quest_2'])]
 
-    subject_basics = CPGDatasetToXCom(task_id='subject_basics', **ckan_args,
-                                      dataset_kwargs={'dataset': 'basics-and-attendance', 'resource': 'subject_basics'})
+    subject_basics_raw = CPGDatasetToXCom(task_id='subject_basics_raw', **ckan_args,
+                                      dataset_kwargs={'dataset': '_sabret3admin', 'resource': 'subject_basics_raw'})
 
     for task in questionnaire_pulls:
         index_match = XComDatasetProcess(task_id=task.task_id.replace("_raw", ""), post_processor=match_indices)
@@ -258,7 +258,13 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                                                 'resource': task.task_id.replace("_raw", "_edits")})] >> \
             XComDatasetProcess(task_id=task.task_id.replace("_raw", "_edited"), post_processor=edit_using) >> \
             index_match
-        subject_basics >> index_match
+        subject_basics_raw >> index_match
+
+    subject_basics = \
+        [subject_basics_raw, dag.get_task('Questionnaire_1A')] >>\
+        XComDatasetProcess(task_id='subject_basics', post_processor=lambda basics, quest_1a: basics.apply(
+                           lambda row: row.set_value('BirthYear', quest_1a.BirthYear.get(row.name))
+                           if pandas.isnull(row['BirthYear']) else row, axis=1))
 
     CPGProcessorToXCom(task_id='MVO2', **oc_args, iter_files_args=['I_EXERC_MVO2_XLSX'],
                        processor=mvo2_exercise.to_frame)
@@ -368,6 +374,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
               'xnat_sessions': '_sabret3admin',
               'bloods_tubeloc': '_sabret3admin',
               'DEXA_CRF': '_sabret3admin',
+              'subject_basics': 'basics-and-attendance',
               }
 
     for task_id, dataset in pushes.items():
