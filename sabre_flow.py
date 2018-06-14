@@ -162,6 +162,7 @@ def tubeloc_match(bloods_crf, tubelocs):
 
     return (tubelocs
             .query('~tube_code.str.contains("No ")')
+            .sort_values(['scan_date', 'scan_time'])
             .groupby(level=0).last()
             .merge(melted_bloods, how='outer', right_on='tube_code', left_index=True))
 
