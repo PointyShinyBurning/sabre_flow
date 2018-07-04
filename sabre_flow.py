@@ -9,7 +9,7 @@ from cpgintegrate.connectors.xnat import XNAT
 from cpgintegrate.connectors.postgres import Postgres
 from cpgintegrate.connectors.ckan import CKAN
 from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr, omron_bp, mvo2_exercise,\
-    doctors_lab_bloods, pulsecor_bp, microquark_spirometry
+    doctors_lab_bloods, pulsecor_bp, microquark_spirometry, imagej_hri
 from airflow.operators.cpg_plugin import CPGDatasetToXCom, CPGProcessorToXCom, XComDatasetProcess, XComDatasetToCkan
 import re
 from datetime import timedelta
@@ -341,6 +341,9 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     CPGDatasetToXCom(task_id='DEXA_CRF', **oc_args, dataset_args=['F_DEXA'])
     CPGDatasetToXCom(task_id='Incidental_Findings_CRF', **oc_args, dataset_args=['F_INCIDENTALFI'])
 
+    CPGProcessorToXCom(task_id="HRI", **oc_args, processor=imagej_hri.to_frame,
+                       iter_files_args=['I_HEPAT_HRIFILE'])
+
     pushes = {'External_bloods_samples': '_sabret3admin',
               'Bloods_external_results': '_sabret3admin',
               'SR_DEXA': '_sabret3admin',
@@ -378,6 +381,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
               'DEXA_CRF': '_sabret3admin',
               'Incidental_Findings_CRF': '_sabret3admin',
               'subject_basics': 'basics-and-attendance',
+              'HRI': 'non-cardiac-ultrasound',
               }
 
     for task_id, dataset in pushes.items():
