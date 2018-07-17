@@ -389,6 +389,25 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         tasks[task_id] >> XComDatasetToCkan(task_id=task_id + "_ckan_push",
                                             ckan_connection_id='ckan', ckan_package_id=dataset, pool='ckan')
 
+    from cpgintegrate.processors.extension_check import ExtensionCheck
+
+    for extension, field in [
+        ('.csv', 'I_ABIFI_ABIFILEANKLE'),
+        ('.csv', 'I_ABIFI_ABIFILEBRACHIAL'),
+        ('.agd', 'I_ACTIG_ACTIGRAPHAGD'),
+        ('.csv', 'I_ACTIG_ACTIGRAPHCSV'),
+        ('.CSV', 'I_EXERC_DG'),
+        ('.XPO', 'I_EXERC_MVO2_XPO'),
+        ('.SCP', 'I_ECGSA_DATAFILE'),
+        ('.pdf', 'I_ECGSA_REPORTFILE'),
+        (['.proj', '.oxyproj'], 'I_EXERC_NIRS_OXYPROJ'),
+        (['.oxy3', '.oxy'], 'I_EXERC_NIRS_OXY3'),
+        ('.xlsx', 'I_EXERC_NIRS_XLSX'),
+        ('.mdw', 'I_ECGSA_HRVFILE')
+    ]:
+        CPGProcessorToXCom(task_id=field+'_extension_check', **oc_args, processor=ExtensionCheck(extension),
+                           iter_files_args=[field])
+
 
     def six_std_report(**frames):
         def six_std_count(df):
