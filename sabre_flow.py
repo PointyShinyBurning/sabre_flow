@@ -231,9 +231,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                                              'xnat:imagesessiondata/scanner/manufacturer'] == 'Philips Medical Systems'
                                          and x['xnat:imagesessiondata/scanner/model'] != 'Achieva',
                            "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]
-                       }) >> [XComDatasetProcess(task_id='Subcutaneous_Fat', post_processor=ult_sr_sats),
-                              XComDatasetToCkan(task_id='Ultrasound_SRs_ckan_push', ckan_package_id='_sabret3admin',
-                                                ckan_connection_id='ckan', push_data_dictionary=False, pool='ckan')]
+                       }) >> XComDatasetProcess(task_id='Subcutaneous_Fat', post_processor=ult_sr_sats)
 
     CPGDatasetToXCom(task_id="Falls_Risk_CRF", **oc_args, dataset_args=['F_FALLSRISKSAB'])
 
@@ -346,7 +344,6 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
 
     pushes = {'External_bloods_samples': '_sabret3admin',
               'Bloods_external_results': '_sabret3admin',
-              'SR_DEXA': '_sabret3admin',
               'Subcutaneous_Fat': 'anthropometrics',
               'DEXA_Hip': 'anthropometrics',
               'DEXA_Spine': 'anthropometrics',
@@ -384,10 +381,15 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
               'HRI': 'non-cardiac-ultrasound',
               }
 
-    for task_id, dataset in pushes.items():
+    pushes_no_meta = {'Ultrasound_SRs': '_sabret3admin',
+                      'SR_DEXA': '_sabret3admin',
+    }
+
+    for task_id, dataset, metadata in \
+            [(a, b, True) for a, b in pushes.items()] + [(a, b, False) for a, b in pushes_no_meta.items()]:
         tasks = {task.task_id: task for task in dag.topological_sort()}
-        tasks[task_id] >> XComDatasetToCkan(task_id=task_id + "_ckan_push",
-                                            ckan_connection_id='ckan', ckan_package_id=dataset, pool='ckan')
+        tasks[task_id] >> XComDatasetToCkan(task_id=task_id + "_ckan_push", ckan_connection_id='ckan',
+                                            ckan_package_id=dataset, pool='ckan', push_data_dictionary=metadata)
 
     from cpgintegrate.processors.extension_check import ExtensionCheck
 
