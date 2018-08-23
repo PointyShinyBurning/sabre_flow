@@ -178,8 +178,10 @@ default_args = {
 }
 
 with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * *', default_args=default_args) as dag:
-    oc_args = {"connector_class": OpenClinica, "connection_id": 'sabrev3_openclinica', "pool": "openclinica"}
-    xnat_args = {"connector_class": XNAT, "connection_id": 'sabrev3_xnat', "pool": "xnat"}
+    oc_args = {"connector_class": OpenClinica, "connection_id": 'sabrev3_openclinica', "pool": "openclinica",
+               "connector_kwargs": {"schema": "S_SABREV3_4350"}}
+    xnat_args = {"connector_class": XNAT, "connection_id": 'sabrev3_xnat', "pool": "xnat",
+                 "connector_kwargs": {"schema": "SABREv3"}}
     teleform_args = {"connector_class": Postgres, "connection_id": 'teleform'}
     ckan_args = {"connector_class": CKAN, "connection_id": "ckan"}
 
