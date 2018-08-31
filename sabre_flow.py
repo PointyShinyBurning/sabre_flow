@@ -189,7 +189,9 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         "experiment_selector": lambda x: x['xnat:imagesessiondata/scanner/manufacturer'] == 'HOLOGIC',
         "scan_selector": lambda x: x.xsiType in ["xnat:srScanData", "xnat:otherDicomScanData"]}
 
-    bp_combine = XComDatasetProcess(task_id='Clinic_BP', post_processor=omron_bp_combine)
+    bp_combine = XComDatasetProcess(task_id='Clinic_BP', post_processor=omron_bp_combine,
+                                    arg_map = {'I_CLINI_CLINICBPFILE_LEFT' : 'bp_left',
+                                               'I_CLINI_CLINICBPFILE_RIGHT': 'bp_right'})
     for field_name in ['I_CLINI_CLINICBPFILE_LEFT', 'I_CLINI_CLINICBPFILE_RIGHT']:
         bp_combine << CPGProcessorToXCom(task_id=field_name, **oc_args,
                                          iter_files_args=[field_name], processor=omron_bp.to_frame)
@@ -224,7 +226,8 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                         if file.name.lower().endswith(".csv")
                         else pandas.read_excel(file, header=None, skiprows=1, parse_cols=8, names=tango_cols)
                         )] >> \
-        XComDatasetProcess(task_id='TANGO', post_processor=tango_measurement_num_assign)
+        XComDatasetProcess(task_id='TANGO', post_processor=tango_measurement_num_assign, arg_map=
+        {'Grip_Strength': 'grips_crf', 'Exercise_CRF': 'exercise_crf', 'TANGO_Data': 'tango_data'})
 
     CPGProcessorToXCom(task_id="Ultrasound_SRs", **xnat_args, processor=dicom_sr.to_frame,
                        iter_files_kwargs={
@@ -253,19 +256,27 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                                       dataset_kwargs={'dataset': '_sabret3admin', 'resource': 'subject_basics_raw'})
 
     for task in questionnaire_pulls:
-        index_match = XComDatasetProcess(task_id=task.task_id.replace("_raw", ""), post_processor=match_indices)
-        [task, CPGDatasetToXCom(task_id=task.task_id.replace("_raw", "_edits"), **ckan_args,
+        id = task.task_id.replace("_raw", "")
+        edits_id = task.task_id.replace("_raw", "_edits")
+        edited_id = task.task_id.replace("_raw", "_edited")
+        index_match = XComDatasetProcess(task_id=id, post_processor=match_indices,
+                                         arg_map={'subject_basics_raw': 'match_in',
+                                                  edited_id: 'match_from'})
+        [task, CPGDatasetToXCom(task_id=edits_id, **ckan_args,
                                 dataset_kwargs={'dataset': 'questionnaires',
                                                 'resource': task.task_id.replace("_raw", "_edits")})] >> \
-            XComDatasetProcess(task_id=task.task_id.replace("_raw", "_edited"), post_processor=edit_using) >> \
+            XComDatasetProcess(task_id=edited_id, post_processor=edit_using, arg_map=
+            {task.task_id: 'frame_to_edit', edits_id: 'edits'}) >> \
             index_match
         subject_basics_raw >> index_match
 
     subject_basics = \
         [subject_basics_raw, dag.get_task('Questionnaire_1A')] >>\
-        XComDatasetProcess(task_id='subject_basics', post_processor=lambda basics, quest_1a: basics.apply(
-                           lambda row: row.set_value('BirthYear', quest_1a.BirthYear.get(row.name))
-                           if pandas.isnull(row['BirthYear']) else row, axis=1))
+        XComDatasetProcess(task_id='subject_basics',
+                           post_processor=lambda subject_basics_raw, quest_1a:
+                           subject_basics_raw.apply(
+                            lambda row: row.set_value('BirthYear', quest_1a.BirthYear.get(row.name))
+                            if pandas.isnull(row['BirthYear']) else row, axis=1), arg_map={'Questionnaire_1A': 'quest_1a'})
 
     CPGProcessorToXCom(task_id='MVO2', **oc_args, iter_files_args=['I_EXERC_MVO2_XLSX'],
                        processor=mvo2_exercise.to_frame)
@@ -313,7 +324,8 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     [bloods_collection,
      CPGDatasetToXCom(task_id='tubeloc', connector_class=Postgres, connection_id='tubeloc',dataset_args=['tubeloc'],
                       dataset_kwargs={'index_col': 'tube_code', 'index_col_is_subject_id': False})] >>\
-    XComDatasetProcess(task_id='bloods_tubeloc', post_processor=tubeloc_match)
+    XComDatasetProcess(task_id='bloods_tubeloc', post_processor=tubeloc_match,
+                       arg_map={'External_bloods_samples': 'bloods_crf', 'tubeloc': 'tubelocs'})
 
 
     [bloods_collection
@@ -336,7 +348,8 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
       indexes_seen_as_partners] >> \
         XComDatasetProcess(task_id='cIMT_edited', post_processor=replace_indices),
         subject_basics] >> \
-        XComDatasetProcess(task_id='cIMT', post_processor=match_indices)
+        XComDatasetProcess(task_id='cIMT', post_processor=match_indices,
+                           arg_map={'cIMT_edited': 'match_from', 'subject_basics': 'match_in'})
 
     CPGDatasetToXCom(task_id='DEXA_CRF', **oc_args, dataset_args=['F_DEXA'])
     CPGDatasetToXCom(task_id='Incidental_Findings_CRF', **oc_args, dataset_args=['F_INCIDENTALFI'])
