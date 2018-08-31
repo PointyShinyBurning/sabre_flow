@@ -128,7 +128,7 @@ def tango_measurement_num_assign(grips_crf, exercise_crf, tango_data):
     return out_frame
 
 
-def tubeloc_match(bloods_crf, tubelocs):
+def tubeloc_match(Bloods_CRF, tubelocs):
 
     blood_col_pairs = [('EDTA_WB1ml_1', 'EDTA_WB1ml_Rack1'),
                        ('EDTA_WB_1', 'EDTA_WB_Rack1_1'),
@@ -144,7 +144,7 @@ def tubeloc_match(bloods_crf, tubelocs):
     for prefix in multiples_prefixes:
         i = 1
         suffix = "_%s" % i
-        while prefix + suffix in bloods_crf.columns:
+        while prefix + suffix in Bloods_CRF.columns:
             extra_pairs.append((prefix + suffix, prefix + '_Rack1' + suffix))
             i += 1
             suffix = "_%s" % i
@@ -152,7 +152,7 @@ def tubeloc_match(bloods_crf, tubelocs):
     blood_col_pairs.extend(extra_pairs)
 
     melted_bloods = pandas.concat(
-        [bloods_crf.assign(SubjectID=bloods_crf.index)
+        [Bloods_CRF.assign(SubjectID=Bloods_CRF.index)
             .melt(id_vars=["SubjectID", rack_var], value_vars=tube_var, var_name='product')
             .rename(columns={rack_var: 'openclinica_rack', 'value': 'tube_code'})
          for tube_var, rack_var in blood_col_pairs]
@@ -202,7 +202,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         XComDatasetProcess(task_id="DEXA_Body", row_filter=lambda row: 'Whole Body' in str(row['Analysis Type']))
     ]
 
-    [CPGProcessorToXCom(task_id="Bioimpedance_raw", **oc_args,
+    [CPGProcessorToXCom(task_id="bioimpedance_raw", **oc_args,
                        iter_files_args=['I_ANTHR_BIOIMPEDANCEFILE'], processor=tanita_bioimpedance.to_frame) >> \
         XComDatasetProcess(task_id="Bioimpedance",
                            filter_cols=['BMI_WEIGHT', 'TABC_FATP', 'TABC_FATM', 'TABC_FFM', 'TABC_TBW', 'TABC_PMM',
@@ -212,9 +212,10 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                                         'TABC_RAFATM', 'TABC_RAFFM', 'TABC_RAPMM', 'TABC_RAIMP', 'TABC_LAFATP',
                                         'TABC_LAFATM', 'TABC_LAFFM', 'TABC_LAPMM', 'TABC_LAIMP', 'TABC_TRFATP',
                                         'TABC_TRFATM', 'TABC_TRFFM', 'TABC_TRPMM']),
-     CPGDatasetToXCom(task_id="Anthropometrics_CRF_raw", **oc_args, dataset_args=['F_ANTHROPOMETR'])] >> \
-        XComDatasetProcess(task_id="Anthropometrics_CRF", post_processor = lambda tanita, crf: crf.apply(
-                           lambda row: row.set_value('Weight', tanita.loc[row.name, 'BMI_WEIGHT'])
+     CPGDatasetToXCom(task_id="anthropometrics_crf_raw", **oc_args, dataset_args=['F_ANTHROPOMETR'])] >> \
+        XComDatasetProcess(task_id="Anthropometrics_CRF", post_processor=
+                        lambda bioimpedance_raw, anthropometrics_crf_raw: anthropometrics_crf_raw.apply(
+                           lambda row: row.set_value('Weight', bioimpedance_raw.loc[row.name, 'BMI_WEIGHT'])
                            if pandas.isnull(row['Weight']) else row, axis=1))
 
     tango_cols = ['#', 'Date', 'Time', 'SYS', 'DIA', 'HR', 'ErrorCode', 'BpType', 'Comments']
@@ -281,14 +282,14 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     CPGProcessorToXCom(task_id='MVO2', **oc_args, iter_files_args=['I_EXERC_MVO2_XLSX'],
                        processor=mvo2_exercise.to_frame)
 
-    def sort_report_dates(match_from, match_to):
-        return (match_indices(match_from, match_to)
+    def sort_report_dates(bloods_raw, subject_basics):
+        return (match_indices(bloods_raw, subject_basics)
                 .assign(report_date=
                         lambda df: pandas.to_datetime(df['Report Date:'], format='%d %B %Y %H:%M:%S', errors='coerce'))
                 .sort_values('report_date')
                 .drop(columns='report_date'))
 
-    [CPGProcessorToXCom(task_id='Bloods_raw', connector_class=IMAP, connection_id='office365',
+    [CPGProcessorToXCom(task_id='bloods_raw', connector_class=IMAP, connection_id='office365',
                        iter_files_args=['RMX0960', 'inbox'], processor=doctors_lab_bloods.to_frame),
         subject_basics] >> \
         XComDatasetProcess(task_id='Bloods_matched', post_processor=sort_report_dates, keep_duplicates='last') >> [
@@ -304,12 +305,12 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     CPGProcessorToXCom(task_id='Spirometry', **oc_args, iter_files_args=['I_SPIRO_SPIROFILE'],
                        processor=microquark_spirometry.to_frame)
 
-    def samples_to_subjects(bloods_crf, sample_list):
-        results = (bloods_crf
-                   .assign(SubjectID=bloods_crf.index).melt(id_vars='SubjectID').dropna()
+    def samples_to_subjects(Bloods_CRF, External_bloods_samples):
+        results = (Bloods_CRF
+                   .assign(SubjectID=Bloods_CRF.index).melt(id_vars='SubjectID').dropna()
                    .pipe(lambda df: df[df.value.str.isdigit()])
                    .assign(value=lambda df: df.value.map(lambda val: int(val)))
-                   .join(sample_list, on='value', rsuffix='_results', how='inner')
+                   .join(External_bloods_samples, on='value', rsuffix='_results', how='inner')
                    .rename(columns={'value': 'SampleID'})
                    )
         pandas.concat([
@@ -322,10 +323,9 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     bloods_collection = CPGDatasetToXCom(task_id="Bloods_CRF", **oc_args, dataset_args=['F_BLOODSCOLLEC'])
 
     [bloods_collection,
-     CPGDatasetToXCom(task_id='tubeloc', connector_class=Postgres, connection_id='tubeloc',dataset_args=['tubeloc'],
+     CPGDatasetToXCom(task_id='tubelocs', connector_class=Postgres, connection_id='tubeloc',dataset_args=['tubeloc'],
                       dataset_kwargs={'index_col': 'tube_code', 'index_col_is_subject_id': False})] >>\
-    XComDatasetProcess(task_id='bloods_tubeloc', post_processor=tubeloc_match,
-                       arg_map={'External_bloods_samples': 'bloods_crf', 'tubeloc': 'tubelocs'})
+    XComDatasetProcess(task_id='bloods_tubeloc', post_processor=tubeloc_match)
 
 
     [bloods_collection
