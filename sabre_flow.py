@@ -346,7 +346,8 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                          processor=lambda f: pandas.read_csv(f, sep='\t')
                          .set_index("Patient's Name").rename_axis(cpgintegrate.SUBJECT_ID_FIELD_NAME)),
       indexes_seen_as_partners] >> \
-        XComDatasetProcess(task_id='cIMT_edited', post_processor=replace_indices),
+        XComDatasetProcess(task_id='cIMT_edited', post_processor=replace_indices,
+                           arg_map={'indexes_seen_as_partners': 'index_source', 'cIMT_raw': 'target'}),
         subject_basics] >> \
         XComDatasetProcess(task_id='cIMT', post_processor=match_indices,
                            arg_map={'cIMT_edited': 'match_from', 'subject_basics': 'match_in'})
@@ -358,7 +359,6 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                        iter_files_args=['I_HEPAT_HRIFILE'])
 
     pushes = {'External_bloods_samples': '_sabret3admin',
-              'Bloods_external_results': '_sabret3admin',
               'Subcutaneous_Fat': 'anthropometrics',
               'DEXA_Hip': 'anthropometrics',
               'DEXA_Spine': 'anthropometrics',
@@ -398,7 +398,8 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
 
     pushes_no_meta = {'Ultrasound_SRs': '_sabret3admin',
                       'SR_DEXA': '_sabret3admin',
-    }
+                      'Bloods_external_results': '_sabret3admin',
+                      }
 
     for task_id, dataset, metadata in \
             [(a, b, True) for a, b in pushes.items()] + [(a, b, False) for a, b in pushes_no_meta.items()]:
