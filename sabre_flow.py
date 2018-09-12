@@ -1,3 +1,5 @@
+import os
+
 import pandas
 from airflow import DAG
 from datetime import datetime
@@ -16,6 +18,10 @@ from datetime import timedelta
 from cpgintegrate.processors.utils import edit_using, match_indices, replace_indices
 import IPython
 import numpy
+from zipfile import ZipFile#
+from airflow.hooks.base_hook import BaseHook
+import requests
+import tempfile
 
 # ~~~~~~~~~~ Data processing functions ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -353,7 +359,8 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                            arg_map={'cIMT_edited': 'match_from', 'subject_basics': 'match_in'})
 
     CPGDatasetToXCom(task_id='DEXA_CRF', **oc_args, dataset_args=['F_DEXA'])
-    CPGDatasetToXCom(task_id='Incidental_Findings_CRF', **oc_args, dataset_args=['F_INCIDENTALFI'])
+    CPGDatasetToXCom(task_id='Incidental_Findings_CRF', **oc_args, dataset_args=['F_INCIDENTALFI'],
+                     dataset_kwargs={'include_meta_columns': True})
 
     CPGProcessorToXCom(task_id="HRI", **oc_args, processor=imagej_hri.to_frame,
                        iter_files_args=['I_HEPAT_HRIFILE'])
@@ -448,3 +455,94 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         XComDatasetProcess(task_id='six_std_report', post_processor=six_std_report, task_id_kwargs=True) >> \
         XComDatasetToCkan(task_id='six_std_report_ckan_push', ckan_connection_id='ckan',
                           ckan_package_id='_sabret3admin', pool='ckan')
+
+# Everything below here purely for legacy Access admin DB, can cut safely if you're not using that
+# Also it's even hackier than what's above, please don't judge me
+    def admin_db_results_zip_to_ckan(**kwargs):
+
+        all_openclinica = (kwargs['all_openclinica']
+                           .groupby(level=0).agg('first')
+                           .join(kwargs['Consent_CRF'], rsuffix='_')
+                           .assign(SE_MRIANALYSIS=numpy.nan, SE_HOMEVISIT_781=numpy.nan, SE_HOMEVISIT_781_StartDate=numpy.nan,
+                                   SE_CLINICVISIT_374=lambda d: d['StudyEventData:Status'],
+                                   SE_CLINICVISIT_374_StartDate=lambda d: d['StudyEventData:StartDate'],)
+                           )
+
+        incids = kwargs['Incidental_Findings_CRF']
+
+        incids_reshaped = (incids
+                           .assign(SubjectID=lambda d: d.index)
+                           .melt(id_vars=['SubjectID', 'Test'], value_vars='NoteForResultsLetter')
+                           .assign(Test=lambda d: 'Res_' + d.Test)
+                           .pivot_table(index='SubjectID', values='value', columns='Test', aggfunc=lambda l: l.str.cat(sep='\r\n'))
+                           )
+
+        bmd = kwargs['DEXA_Hip']['Neck_BMD'].dropna().groupby(level=0).last()
+
+        resletter = (all_openclinica[[
+            'I_ANTHR_WAIST', 'I_ANTHR_HEIGHT', 'I_ANTHR_WEIGHT', 'I_COGNI_SATISFIED', 'I_COGNI_DROPPEDINTERESTS',
+            'I_COGNI_LIFEEMPTY', 'I_COGNI_AFRAIDBADTHINGS', 'I_COGNI_HAPPY', 'I_COGNI_HELPLESS', 'I_COGNI_MEMORYPROBLEMS',
+            'I_COGNI_FULLOFENERGY', 'I_COGNI_HOPELESSSITUATION', 'I_COGNI_MOSTBETTEROFF', 'I_MRIOR_MRIPERFORMED',
+            'I_FALLS_FALLINPASTYEAR', 'I_FALLS_FOURORMOREMEDS', 'I_FALLS_ANYPSYCHOTROPICMEDS', 'I_FALLS_VISUALACUITYLINE16FAIL',
+            'I_FALLS_PERIPHERALSENSATIONFAIL', 'I_FALLS_10SECONDSTANDFAIL', 'I_FALLS_ALTERNATESTEPFAIL', 'I_FALLS_SITTOSTANDFAIL',
+            'SE_CLINICVISIT_374', 'SE_CLINICVISIT_374_StartDate', 'SE_HOMEVISIT_781', 'SE_HOMEVISIT_781_StartDate', 'SE_MRIANALYSIS',
+            'I_ECGSA_DATAFILE', 'I_ECHOD_ECHOPERFORMED', 'I_EXERC_ULTRASOUNDPERFORMED', 'I_MRIRE_MRIREPORTED', 'I_DEXA_HIP',
+            'I_CLINI_ALLOWIDENTIFIERSHARING', 'I_CLINI_ALLOWTEAMRECORDSACCESS'
+        ]]
+            .assign(AllIncidsComplete=(incids['StudyEventData:Status'] == 'completed').groupby(level=0).all(),
+                    SubjectID=lambda d: d.index)
+            .assign(AllIncidsComplete=lambda d: d.AllIncidsComplete.fillna(True))
+            .join(incids_reshaped).join(bmd, how="left")
+            )
+
+        csvs = dict({'bioimpedance': kwargs['bioimpedance_raw'],
+                'blood_results': kwargs['Bloods_matched'].assign(exists=1).drop(columns='Source'),
+                'clinic_bp': kwargs['Clinic_BP'].to_brackets_dataframe(),
+                'openclinica_results_letter': resletter,},
+                    **{'quest_'+q.split('_')[1].lower(): kwargs[q].assign(exists=1).drop(columns='Source')
+                          for q in ['Questionnaire_1A', 'Questionnaire_1B', 'Questionnaire_2']}
+                    )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            zip_name = 'admin_db_upload.zip'
+            package_id = '_sabret3admin'
+
+            zip_location = os.path.join(temp_dir, zip_name)
+            zip_file = ZipFile(zip_location, mode='w')
+            for csv_name, dataframe in csvs.items():
+                csv_location = os.path.join(temp_dir, csv_name+'.csv')
+                dataframe.to_csv(csv_location)
+                zip_file.write(csv_location, csv_name+'.csv')
+            zip_file.close()
+
+            ckan_conn = BaseHook.get_connection('ckan')
+            existing = requests.post(
+                url=ckan_conn.host + '/api/3/action/package_show',
+                data={'id': package_id},
+                headers={"Authorization": ckan_conn.get_password()},
+            ).json()['result']['resources']
+
+            try:
+                request_data = {"id": next(res['id'] for res in existing if res['name'] == zip_name)}
+                url_ending = '/api/3/action/resource_update'
+            except StopIteration:
+                request_data = {"package_id": package_id, "name": zip_name}
+                url_ending = '/api/3/action/resource_create'
+
+            requests.post(
+                url=ckan_conn.host + url_ending,
+                data=request_data,
+                headers={"Authorization": ckan_conn.get_password()},
+                files={'upload': (zip_name, open(zip_location, 'rb'))}
+            )
+
+            return pandas.DataFrame()
+
+    [CPGDatasetToXCom(**oc_args, task_id='all_openclinica', dataset_kwargs={'oid_var_names': True}),
+     CPGDatasetToXCom(task_id='Consent_CRF', **oc_args, dataset_args=['F_CLINICCONSEN'],
+                      dataset_kwargs={'include_meta_columns': True})
+     ] + \
+    [dag.get_task(task_id) for task_id in ['bioimpedance_raw', 'Bloods_matched', 'Clinic_BP', 'Questionnaire_1A',
+                                           'Questionnaire_1B', 'Questionnaire_2', 'Incidental_Findings_CRF',
+                                           'DEXA_Hip']] >> \
+        XComDatasetProcess(task_id='admin_db_results_zip',
+                           task_id_kwargs=True, post_processor=admin_db_results_zip_to_ckan)
