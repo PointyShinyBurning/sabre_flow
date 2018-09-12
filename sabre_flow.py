@@ -214,8 +214,8 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                                         'TABC_TRFATM', 'TABC_TRFFM', 'TABC_TRPMM']),
      CPGDatasetToXCom(task_id="anthropometrics_crf_raw", **oc_args, dataset_args=['F_ANTHROPOMETR'])] >> \
         XComDatasetProcess(task_id="Anthropometrics_CRF", post_processor=
-                        lambda bioimpedance_raw, anthropometrics_crf_raw: anthropometrics_crf_raw.apply(
-                           lambda row: row.set_value('Weight', bioimpedance_raw.loc[row.name, 'BMI_WEIGHT'])
+                        lambda Bioimpedance, anthropometrics_crf_raw: anthropometrics_crf_raw.apply(
+                           lambda row: row.set_value('Weight', Bioimpedance.loc[row.name, 'BMI_WEIGHT'])
                            if pandas.isnull(row['Weight']) else row, axis=1))
 
     tango_cols = ['#', 'Date', 'Time', 'SYS', 'DIA', 'HR', 'ErrorCode', 'BpType', 'Comments']
