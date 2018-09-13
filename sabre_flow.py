@@ -495,8 +495,19 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
             .join(incids_reshaped).join(bmd, how="left")
             )
 
-        csvs = dict({'bioimpedance': kwargs['bioimpedance_raw'],
-                'blood_results': kwargs['Bloods_matched'].assign(exists=1).drop(columns='Source'),
+        units = cpgintegrate.UNITS_ATTRIBUTE_NAME
+
+        bloods = kwargs['Bloods_matched']
+        blood_cols = bloods.get_column_info(bare=True)
+        blood_results = (
+            bloods
+            .rename(columns=lambda col: "({}) ".format(blood_cols[col.split('_')[0]][units])
+                    .join((col+('' if '_' in col else '_')).split("_")).strip()
+                if blood_cols[col.split('_')[0]] else col)
+            .assign(exists=1).drop(columns='Source')
+        )
+        csvs = dict({'bioimpedance': kwargs['bioimpedance_raw'].drop(columns='Source'),
+                'blood_results': blood_results,
                 'clinic_bp': kwargs['Clinic_BP'].to_brackets_dataframe(),
                 'openclinica_results_letter': resletter,},
                     **{'quest_'+q.split('_')[1].lower(): kwargs[q].assign(exists=1).drop(columns='Source')
