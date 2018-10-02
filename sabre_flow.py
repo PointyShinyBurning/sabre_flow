@@ -236,6 +236,9 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
         XComDatasetProcess(task_id='TANGO', post_processor=tango_measurement_num_assign, arg_map=
         {'Grip_Strength': 'grips_crf', 'Exercise_CRF': 'exercise_crf', 'TANGO_Data': 'tango_data'})
 
+    CPGDatasetToXCom(task_id="Exercise_CRF_OID", **oc_args, dataset_args=['F_EXERCISESABR'],
+                     dataset_kwargs={'oid_var_names':True})
+
     CPGProcessorToXCom(task_id="Ultrasound_SRs", **xnat_args, processor=dicom_sr.to_frame,
                        iter_files_kwargs={
                            "experiment_selector":
@@ -399,6 +402,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
               'bloods_tubeloc': '_sabret3admin',
               'DEXA_CRF': '_sabret3admin',
               'Incidental_Findings_CRF': '_sabret3admin',
+              'Exercise_CRF_OID': '_sabret3admin',
               'subject_basics': 'basics-and-attendance',
               'HRI': 'non-cardiac-ultrasound',
               }
