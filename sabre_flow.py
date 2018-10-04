@@ -22,6 +22,7 @@ from zipfile import ZipFile#
 from airflow.hooks.base_hook import BaseHook
 import requests
 import tempfile
+import functools
 
 # ~~~~~~~~~~ Data processing functions ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -291,6 +292,9 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     CPGProcessorToXCom(task_id='MVO2', **oc_args, iter_files_args=['I_EXERC_MVO2_XLSX'],
                        processor=mvo2_exercise.to_frame)
 
+    CPGProcessorToXCom(task_id='MVO2_detail', **oc_args, iter_files_args=['I_EXERC_MVO2_XLSX'],
+                       processor=functools.partial(mvo2_exercise.to_frame, line_data=True))
+
     def sort_report_dates(bloods_raw, subject_basics):
         return (match_indices(bloods_raw, subject_basics)
                 .assign(report_date=
@@ -390,6 +394,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
               'Exercise_CRF': 'exercise',
               'TANGO': 'exercise',
               'MVO2': 'exercise',
+              'MVO2_detail': 'exercise',
               'Clinic_BP': 'vascular',
               'Pulsecor_BP': 'vascular',
               'Bloods_Ranges': '_sabret3admin',
