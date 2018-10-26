@@ -1,28 +1,28 @@
+import functools
 import os
-
-import pandas
-from airflow import DAG
+import re
+import tempfile
 from datetime import datetime
+from datetime import timedelta
+from zipfile import ZipFile
+
 import cpgintegrate
-from airflow.operators.dummy_operator import DummyOperator
+import numpy
+import pandas
+import requests
+from airflow import DAG
+from airflow.hooks.base_hook import BaseHook
+from airflow.models import Variable
+from airflow.operators.cpg_plugin import CPGDatasetToXCom, CPGProcessorToXCom, XComDatasetProcess, XComDatasetToCkan
+from cpgintegrate.connectors.ckan import CKAN
 from cpgintegrate.connectors.imap import IMAP
 from cpgintegrate.connectors.openclinica import OpenClinica
-from cpgintegrate.connectors.xnat import XNAT
 from cpgintegrate.connectors.postgres import Postgres
-from cpgintegrate.connectors.ckan import CKAN
-from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr, omron_bp, mvo2_exercise,\
+from cpgintegrate.connectors.xnat import XNAT
+from cpgintegrate.processors import tanita_bioimpedance, epiq7_liverelast, dicom_sr, omron_bp, mvo2_exercise, \
     doctors_lab_bloods, pulsecor_bp, microquark_spirometry, imagej_hri
-from airflow.operators.cpg_plugin import CPGDatasetToXCom, CPGProcessorToXCom, XComDatasetProcess, XComDatasetToCkan
-import re
-from datetime import timedelta
 from cpgintegrate.processors.utils import edit_using, match_indices, replace_indices
-import IPython
-import numpy
-from zipfile import ZipFile#
-from airflow.hooks.base_hook import BaseHook
-import requests
-import tempfile
-import functools
+
 
 # ~~~~~~~~~~ Data processing functions ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -179,7 +179,7 @@ def tubeloc_match(Bloods_CRF, tubelocs):
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
-    'email': ['d.key@ucl.ac.uk'],
+    'email': [Variable.get('alert_email', None)],
     'email_on_failure': True,
     'email_on_retry': True,
 }
