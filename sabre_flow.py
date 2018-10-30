@@ -325,12 +325,8 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                    .assign(value=lambda df: df.value.map(lambda val: int(val)))
                    .join(External_bloods_samples, on='value', rsuffix='_results', how='inner')
                    .rename(columns={'value': 'SampleID'})
+                   .set_index('SubjectID')
                    )
-        pandas.concat([
-            results.loc[:, ['SampleID', 'variable']].rename(columns={'variable': 'value'}).assign(variable='tube_type'),
-            results.loc[:, ['SampleID', 'variable_results', 'value_results']].rename(columns=lambda col: col.replace('_results','')),
-            results.loc[:, ['SampleID', 'Source']].rename(columns={'Source': 'value'}).assign(variable='Source'),
-        ])
         return results
 
     bloods_collection = CPGDatasetToXCom(task_id="Bloods_CRF", **oc_args, dataset_args=['F_BLOODSCOLLEC'])
