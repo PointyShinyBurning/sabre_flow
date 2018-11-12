@@ -295,20 +295,6 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     CPGProcessorToXCom(task_id='MVO2_detail', **oc_args, iter_files_args=['I_EXERC_MVO2_XLSX'],
                        processor=functools.partial(mvo2_exercise.to_frame, line_data=True))
 
-    def sort_report_dates(bloods_raw, subject_basics):
-        return (match_indices(bloods_raw, subject_basics)
-                .assign(report_date=
-                        lambda df: pandas.to_datetime(df['Report Date:'], format='%d %B %Y %H:%M:%S', errors='coerce'))
-                .sort_values('report_date')
-                .drop(columns='report_date'))
-
-    [CPGProcessorToXCom(task_id='bloods_raw', connector_class=IMAP, connection_id='office365',
-                       iter_files_args=['RMX0960', 'inbox'], processor=doctors_lab_bloods.to_frame),
-        subject_basics] >> \
-        XComDatasetProcess(task_id='Bloods_matched', post_processor=sort_report_dates, keep_duplicates='last') >> [
-        XComDatasetProcess(task_id='Bloods_Ranges', filter_cols='.*_OutOfRange|_Range'),
-        XComDatasetProcess(task_id='Bloods', filter_cols='^((?!_OutOfRange|_Range).)*$')
-    ]
 
     CPGProcessorToXCom(task_id="Pulsecor_BP", **oc_args, processor=pulsecor_bp.to_frame,
                        iter_files_args=['I_PULSE_PULSECORFILE'])
@@ -329,21 +315,37 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                    )
         return results
 
-    bloods_collection = CPGDatasetToXCom(task_id="Bloods_CRF", **oc_args, dataset_args=['F_BLOODSCOLLEC'])
+    Bloods_CRF = CPGDatasetToXCom(task_id="Bloods_CRF", **oc_args, dataset_args=['F_BLOODSCOLLEC'])
 
-    [bloods_collection,
+    [Bloods_CRF,
      CPGDatasetToXCom(task_id='tubelocs', connector_class=Postgres, connection_id='tubeloc',dataset_args=['tubeloc'],
                       dataset_kwargs={'index_col': 'tube_code', 'index_col_is_subject_id': False})] >>\
     XComDatasetProcess(task_id='bloods_tubeloc', post_processor=tubeloc_match)
 
 
-    [bloods_collection
+    [Bloods_CRF
         , CPGProcessorToXCom(task_id="External_bloods_samples", **ckan_args, iter_files_args=['_bloods_files'],
                              processor=lambda f: pandas.read_excel(f)
                              .pipe(lambda df: df.rename(columns={df.columns[0]: 'SampleID'}))
                              .melt(id_vars='SampleID')
                              .dropna().set_index('SampleID'))] >>\
         XComDatasetProcess(task_id='Bloods_external_results', post_processor=samples_to_subjects)
+
+
+    def sort_report_dates(bloods_raw, Bloods_CRF):
+        return (match_indices(bloods_raw, Bloods_CRF)
+                .assign(report_date=
+                        lambda df: pandas.to_datetime(df['Report Date:'], format='%d %B %Y %H:%M:%S', errors='coerce'))
+                .sort_values('report_date')
+                .drop(columns='report_date'))
+
+    [CPGProcessorToXCom(task_id='bloods_raw', connector_class=IMAP, connection_id='office365',
+                       iter_files_args=['RMX0960', 'inbox'], processor=doctors_lab_bloods.to_frame),
+     Bloods_CRF] >> \
+    XComDatasetProcess(task_id='Bloods_matched', post_processor=sort_report_dates, keep_duplicates='last') >> [
+        XComDatasetProcess(task_id='Bloods_Ranges', filter_cols='.*_OutOfRange|_Range'),
+        XComDatasetProcess(task_id='Bloods', filter_cols='^((?!_OutOfRange|_Range).)*$')
+    ]
 
     CPGDatasetToXCom(task_id='xnat_sessions', **xnat_args)
 
