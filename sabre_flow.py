@@ -284,17 +284,16 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     subject_basics = \
         [subject_basics_raw, dag.get_task('Questionnaire_1A')] >>\
         XComDatasetProcess(task_id='subject_basics',
-                           post_processor=lambda subject_basics_raw, quest_1a:
-                           subject_basics_raw.apply(
-                            lambda row: row.set_value('BirthYear', quest_1a.BirthYear.get(row.name))
-                            if pandas.isnull(row['BirthYear']) else row, axis=1), arg_map={'Questionnaire_1A': 'quest_1a'})
+                           post_processor=lambda subject_basics_raw, Questionnaire_1A:
+                           subject_basics_raw
+                            .apply(lambda row: row.set_value('BirthYear', Questionnaire_1A.BirthYear.get(row.name))
+                                if pandas.isnull(row['BirthYear']) else row, axis=1))
 
     CPGProcessorToXCom(task_id='MVO2', **oc_args, iter_files_args=['I_EXERC_MVO2_XLSX'],
                        processor=mvo2_exercise.to_frame)
 
     CPGProcessorToXCom(task_id='MVO2_detail', **oc_args, iter_files_args=['I_EXERC_MVO2_XLSX'],
                        processor=functools.partial(mvo2_exercise.to_frame, line_data=True))
-
 
     CPGProcessorToXCom(task_id="Pulsecor_BP", **oc_args, processor=pulsecor_bp.to_frame,
                        iter_files_args=['I_PULSE_PULSECORFILE'])
@@ -470,7 +469,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
 
         all_openclinica = (kwargs['all_openclinica']
                            .groupby(level=0).agg('first')
-                           .join(kwargs['Consent_CRF'], rsuffix='_')
+                           .join(kwargs['Anthropometrics_CRF_meta'], rsuffix='_')
                            .assign(SE_MRIANALYSIS=numpy.nan, SE_HOMEVISIT_781=numpy.nan, SE_HOMEVISIT_781_StartDate=numpy.nan,
                                    SE_CLINICVISIT_374=lambda d: d['StudyEventData:Status'],
                                    SE_CLINICVISIT_374_StartDate=lambda d: d['StudyEventData:StartDate'],)
@@ -557,8 +556,8 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
             return pandas.DataFrame()
 
     [CPGDatasetToXCom(**oc_args, task_id='all_openclinica', dataset_kwargs={'oid_var_names': True}),
-     CPGDatasetToXCom(task_id='Consent_CRF', **oc_args, dataset_args=['F_CLINICCONSEN'],
-                      dataset_kwargs={'include_meta_columns': True})
+     CPGDatasetToXCom(task_id='Anthropometrics_CRF_meta', **oc_args, dataset_args=['F_ANTHROPOMETR'],
+                      dataset_kwargs={'include_meta_columns': True}),
      ] + \
     [dag.get_task(task_id) for task_id in ['bioimpedance_raw', 'Bloods_matched', 'Clinic_BP', 'Questionnaire_1A',
                                            'Questionnaire_1B', 'Questionnaire_2', 'Incidental_Findings_CRF',
