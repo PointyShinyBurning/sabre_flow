@@ -378,6 +378,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
               'Anthropometrics_CRF': 'anthropometrics',
               'Falls_Risk_CRF': 'anthropometrics',
               'Cognitive_CRF_Geriatric_Depression': 'cognitive',
+              'Cognitive_CRF': 'cognitive',
               'Bioimpedance': 'anthropometrics',
               'Liver_Elastography': 'anthropometrics',
               'Questionnaire_1A': 'questionnaires',
