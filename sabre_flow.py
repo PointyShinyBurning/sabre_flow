@@ -369,7 +369,10 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
     CPGProcessorToXCom(task_id="HRI", **oc_args, processor=imagej_hri.to_frame,
                        iter_files_args=['I_HEPAT_HRIFILE'])
 
+    CPGDatasetToXCom(task_id='MRI_Order_CRF', **oc_args, dataset_args=['F_MRIORDER'])
+
     pushes = {'External_bloods_samples': '_sabret3admin',
+              'MRI_Order_CRF': '_sabret3admin',
               'Subcutaneous_Fat': 'anthropometrics',
               'DEXA_Hip': 'anthropometrics',
               'DEXA_Spine': 'anthropometrics',
