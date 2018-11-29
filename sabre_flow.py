@@ -226,7 +226,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                            if pandas.isnull(row['Weight']) else row, axis=1))
 
     tango_cols = ['#', 'Date', 'Time', 'SYS', 'DIA', 'HR', 'ErrorCode', 'BpType', 'Comments']
-    [CPGDatasetToXCom(task_id='Grip_Strength', **oc_args, dataset_args=['F_GRIPSTRENGTH']),
+    [CPGDatasetToXCom(task_id='Grip_Strength_CRF', **oc_args, dataset_args=['F_GRIPSTRENGTH']),
      CPGDatasetToXCom(task_id="Exercise_CRF", **oc_args, dataset_args=['F_EXERCISESABR']),
      CPGProcessorToXCom(task_id='TANGO_Data', **oc_args, iter_files_args=['I_EXERC_TANGO'],
                         processor=lambda file:
@@ -235,7 +235,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
                         else pandas.read_excel(file, header=None, skiprows=1, parse_cols=8, names=tango_cols)
                         )] >> \
         XComDatasetProcess(task_id='TANGO', post_processor=tango_measurement_num_assign, arg_map=
-        {'Grip_Strength': 'grips_crf', 'Exercise_CRF': 'exercise_crf', 'TANGO_Data': 'tango_data'})
+        {'Grip_Strength_CRF': 'grips_crf', 'Exercise_CRF': 'exercise_crf', 'TANGO_Data': 'tango_data'})
 
     CPGDatasetToXCom(task_id="Exercise_CRF_OID", **oc_args, dataset_args=['F_EXERCISESABR'],
                      dataset_kwargs={'oid_var_names':True})
@@ -371,8 +371,11 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
 
     CPGDatasetToXCom(task_id='MRI_Order_CRF', **oc_args, dataset_args=['F_MRIORDER'])
 
+    CPGDatasetToXCom(task_id='Echo_Done_CRF', **oc_args, dataset_args=['F_ECHODONE'])
+
     pushes = {'External_bloods_samples': '_sabret3admin',
               'MRI_Order_CRF': '_sabret3admin',
+              'Echo_Done_CRF': '_sabret3admin',
               'Subcutaneous_Fat': 'anthropometrics',
               'DEXA_Hip': 'anthropometrics',
               'DEXA_Spine': 'anthropometrics',
@@ -392,6 +395,7 @@ with DAG('sabrev3', start_date=datetime(2017, 9, 6), schedule_interval='1 0 * * 
               # 'Questionnaire_2_edited': '_sabret3admin',
               # 'Questionnaire_1B_raw': '_sabret3admin',
               # 'Questionnaire_1B_edited': '_sabret3admin',
+              'Grip_Strength_CRF': 'exercise',
               'Exercise_CRF': 'exercise',
               'TANGO': 'exercise',
               'MVO2': 'exercise',
